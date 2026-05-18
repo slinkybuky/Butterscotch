@@ -1477,6 +1477,16 @@ static void cleanupState(Runner* runner) {
         }
     }
 
+    // Close any binary file handles still held by the game (close flushes write modes
+    // through the FileSystem vtable, so an orderly shutdown still persists pending data)
+    repeat(MAX_OPEN_BINARY_FILES, i) {
+        OpenBinaryFile* file = &runner->openBinaryFiles[i];
+        if (file->isOpen) {
+            runner->fileSystem->vtable->binaryClose(runner->fileSystem, file->handle);
+            *file = (OpenBinaryFile) {0};
+        }
+    }
+
     if (runner->spatialGrid != nullptr) {
         SpatialGrid_free(runner->spatialGrid);
         runner->spatialGrid = nullptr;

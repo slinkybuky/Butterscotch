@@ -4709,6 +4709,108 @@ static RValue builtin_file_delete(VMContext* ctx, RValue* args, int32_t argCount
     return RValue_makeUndefined();
 }
 
+// ===[ Binary File Functions ]===
+
+static int32_t findFreeBinaryFileSlot(Runner* runner) {
+    for (int32_t i = 1; MAX_OPEN_BINARY_FILES > i; i++) {
+        if (!runner->openBinaryFiles[i].isOpen) return i;
+    }
+    return -1;
+}
+
+static OpenBinaryFile* getBinaryFile(Runner* runner, int32_t handle) {
+    if (1 > handle || handle >= MAX_OPEN_BINARY_FILES) return nullptr;
+    OpenBinaryFile* file = &runner->openBinaryFiles[handle];
+    return file->isOpen ? file : nullptr;
+}
+
+static RValue builtin_file_bin_open(VMContext* ctx, RValue* args, int32_t argCount) {
+    if (2 > argCount) return RValue_makeReal(-1.0);
+    const char* path = (args[0].type == RVALUE_STRING ? args[0].string : "");
+    int32_t mode = RValue_toInt32(args[1]);
+    Runner* runner = ctx->runner;
+
+    int32_t slot = findFreeBinaryFileSlot(runner);
+    if (0 > slot) {
+        fprintf(stderr, "Warning: Too many open binary files!\n");
+        return RValue_makeReal(-1.0);
+    }
+
+    FileSystem* fs = runner->fileSystem;
+    void* handle = fs->vtable->binaryOpen(fs, path, mode);
+    if (handle == nullptr) return RValue_makeReal(-1.0);
+
+    runner->openBinaryFiles[slot] = (OpenBinaryFile) { .handle = handle, .isOpen = true };
+    return RValue_makeReal((GMLReal) slot);
+}
+
+static RValue builtin_file_bin_close(VMContext* ctx, RValue* args, int32_t argCount) {
+    if (1 > argCount) return RValue_makeUndefined();
+    Runner* runner = ctx->runner;
+    OpenBinaryFile* file = getBinaryFile(runner, RValue_toInt32(args[0]));
+    if (file == nullptr) return RValue_makeUndefined();
+    runner->fileSystem->vtable->binaryClose(runner->fileSystem, file->handle);
+    *file = (OpenBinaryFile) {0};
+    return RValue_makeUndefined();
+}
+
+static RValue builtin_file_bin_position(VMContext* ctx, RValue* args, int32_t argCount) {
+    if (1 > argCount) return RValue_makeReal(0.0);
+    Runner* runner = ctx->runner;
+    OpenBinaryFile* file = getBinaryFile(runner, RValue_toInt32(args[0]));
+    if (file == nullptr) return RValue_makeReal(0.0);
+    return RValue_makeReal((GMLReal) runner->fileSystem->vtable->binaryTell(runner->fileSystem, file->handle));
+}
+
+static RValue builtin_file_bin_size(VMContext* ctx, RValue* args, int32_t argCount) {
+    if (1 > argCount) return RValue_makeReal(0.0);
+    Runner* runner = ctx->runner;
+    OpenBinaryFile* file = getBinaryFile(runner, RValue_toInt32(args[0]));
+    if (file == nullptr) return RValue_makeReal(0.0);
+    return RValue_makeReal((GMLReal) runner->fileSystem->vtable->binarySize(runner->fileSystem, file->handle));
+}
+
+static RValue builtin_file_bin_seek(VMContext* ctx, RValue* args, int32_t argCount) {
+    if (2 > argCount) return RValue_makeUndefined();
+    Runner* runner = ctx->runner;
+    OpenBinaryFile* file = getBinaryFile(runner, RValue_toInt32(args[0]));
+    if (file == nullptr) return RValue_makeUndefined();
+    int32_t pos = RValue_toInt32(args[1]);
+    if (0 > pos) pos = 0;
+    runner->fileSystem->vtable->binarySeek(runner->fileSystem, file->handle, pos);
+    return RValue_makeUndefined();
+}
+
+static RValue builtin_file_bin_read_byte(VMContext* ctx, RValue* args, int32_t argCount) {
+    if (1 > argCount) return RValue_makeReal(0.0);
+    Runner* runner = ctx->runner;
+    OpenBinaryFile* file = getBinaryFile(runner, RValue_toInt32(args[0]));
+    if (file == nullptr) return RValue_makeReal(0.0);
+    uint8_t byte = 0;
+    int32_t got = runner->fileSystem->vtable->binaryRead(runner->fileSystem, file->handle, &byte, 1);
+    if (got != 1) return RValue_makeReal(0.0); // past EOF -> native returns 0
+    return RValue_makeReal((GMLReal) byte);
+}
+
+static RValue builtin_file_bin_write_byte(VMContext* ctx, RValue* args, int32_t argCount) {
+    if (2 > argCount) return RValue_makeUndefined();
+    Runner* runner = ctx->runner;
+    OpenBinaryFile* file = getBinaryFile(runner, RValue_toInt32(args[0]));
+    if (file == nullptr) return RValue_makeUndefined();
+    uint8_t byte = (uint8_t) (RValue_toInt32(args[1]) & 0xFF);
+    runner->fileSystem->vtable->binaryWrite(runner->fileSystem, file->handle, &byte, 1);
+    return RValue_makeUndefined();
+}
+
+static RValue builtin_file_bin_rewrite(VMContext* ctx, RValue* args, int32_t argCount) {
+    if (1 > argCount) return RValue_makeUndefined();
+    Runner* runner = ctx->runner;
+    OpenBinaryFile* file = getBinaryFile(runner, RValue_toInt32(args[0]));
+    if (file == nullptr) return RValue_makeUndefined();
+    runner->fileSystem->vtable->binaryRewrite(runner->fileSystem, file->handle);
+    return RValue_makeUndefined();
+}
+
 // Keyboard functions
 static RValue builtin_keyboard_check(VMContext* ctx, RValue* args, int32_t argCount) {
     if (1 > argCount) return RValue_makeBool(false);
@@ -10343,6 +10445,14 @@ void VMBuiltins_registerAll(VMContext* ctx) {
     VM_registerBuiltin(ctx, "file_text_read_string", builtin_file_text_read_string);
     VM_registerBuiltin(ctx, "file_text_read_real", builtin_file_text_read_real);
     VM_registerBuiltin(ctx, "file_text_readln", builtin_file_text_readln);
+    VM_registerBuiltin(ctx, "file_bin_open", builtin_file_bin_open);
+    VM_registerBuiltin(ctx, "file_bin_close", builtin_file_bin_close);
+    VM_registerBuiltin(ctx, "file_bin_position", builtin_file_bin_position);
+    VM_registerBuiltin(ctx, "file_bin_size", builtin_file_bin_size);
+    VM_registerBuiltin(ctx, "file_bin_seek", builtin_file_bin_seek);
+    VM_registerBuiltin(ctx, "file_bin_read_byte", builtin_file_bin_read_byte);
+    VM_registerBuiltin(ctx, "file_bin_write_byte", builtin_file_bin_write_byte);
+    VM_registerBuiltin(ctx, "file_bin_rewrite", builtin_file_bin_rewrite);
 
     // Keyboard
     VM_registerBuiltin(ctx, "keyboard_check", builtin_keyboard_check);

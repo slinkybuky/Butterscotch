@@ -285,6 +285,13 @@ typedef struct {
     bool isOpen;
 } OpenTextFile;
 
+// Open binary file handle for GML file_bin_* functions.
+#define MAX_OPEN_BINARY_FILES 32
+typedef struct {
+    void* handle; // FileSystem-owned; passed to binaryRead/Write/Seek/etc.
+    bool isOpen;
+} OpenBinaryFile;
+
 // Saved state for persistent rooms. When leaving a persistent room, instance state
 // and visual properties are saved here. When returning, they are restored instead
 // of re-creating from the room definition.
@@ -434,6 +441,7 @@ struct Runner {
 
     // Text file handles for file_text_* functions
     OpenTextFile openTextFiles[MAX_OPEN_TEXT_FILES];
+    OpenBinaryFile openBinaryFiles[MAX_OPEN_BINARY_FILES];
 
     // Async map ID
     int32_t asyncLoadMapId;
