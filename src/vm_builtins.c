@@ -8149,6 +8149,127 @@ static RValue builtin_action_draw_health(VMContext* ctx, MAYBE_UNUSED RValue* ar
     return RValue_makeUndefined();
 }
 
+// action_sprite_set(sprite_id, sub_img, image_speed) - sets the calling instance's sprite, image_index (only if >= 0), and image_speed.
+static RValue builtin_action_sprite_set(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
+    Instance* inst = ctx->currentInstance;
+    if (inst == nullptr) return RValue_makeUndefined();
+    int32_t spriteId = RValue_toInt32(args[0]);
+    GMLReal subImg = RValue_toReal(args[1]);
+    GMLReal speed = RValue_toReal(args[2]);
+    inst->spriteIndex = spriteId;
+    if (subImg >= 0.0) inst->imageIndex = (float) subImg;
+    inst->imageSpeed = (float) speed;
+    return RValue_makeUndefined();
+}
+
+// action_message(text) - shows a dialog.
+static RValue builtin_action_message(MAYBE_UNUSED VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
+    char* text = RValue_toString(args[0]);
+    fprintf(stderr, "VM: action_message: %s\n", text);
+    free(text);
+    return RValue_makeUndefined();
+}
+
+// action_another_room(room_id) - jumps to the given room.
+static RValue builtin_action_another_room(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
+    Runner* runner = requireNotNullMessage(ctx->runner, "VM: action_another_room called but no runner!");
+    runner->pendingRoom = RValue_toInt32(args[0]);
+    return RValue_makeUndefined();
+}
+
+// action_current_room() -  restarts the current room.
+static RValue builtin_action_current_room(VMContext* ctx, MAYBE_UNUSED RValue* args, MAYBE_UNUSED int32_t argCount) {
+    Runner* runner = requireNotNullMessage(ctx->runner, "VM: action_current_room called but no runner!");
+    runner->pendingRoom = runner->currentRoomIndex;
+    return RValue_makeUndefined();
+}
+
+// action_next_room() - goes to the next room in the room order.
+static RValue builtin_action_next_room(VMContext* ctx, MAYBE_UNUSED RValue* args, MAYBE_UNUSED int32_t argCount) {
+    Runner* runner = requireNotNullMessage(ctx->runner, "VM: action_next_room called but no runner!");
+    int32_t nextPos = runner->currentRoomOrderPosition + 1;
+    if ((int32_t) runner->dataWin->gen8.roomOrderCount > nextPos) {
+        runner->pendingRoom = runner->dataWin->gen8.roomOrder[nextPos];
+    } else {
+        fprintf(stderr, "VM: action_next_room - already at last room!\n");
+    }
+    return RValue_makeUndefined();
+}
+
+// action_reverse_xdir() - negates the calling instance's hspeed.
+static RValue builtin_action_reverse_xdir(VMContext* ctx, MAYBE_UNUSED RValue* args, MAYBE_UNUSED int32_t argCount) {
+    Instance* inst = ctx->currentInstance;
+    if (inst == nullptr) return RValue_makeUndefined();
+    inst->hspeed = -inst->hspeed;
+    Instance_computeSpeedFromComponents(inst);
+    return RValue_makeUndefined();
+}
+
+// action_reverse_ydir() - negates the calling instance's vspeed.
+static RValue builtin_action_reverse_ydir(VMContext* ctx, MAYBE_UNUSED RValue* args, MAYBE_UNUSED int32_t argCount) {
+    Instance* inst = ctx->currentInstance;
+    if (inst == nullptr) return RValue_makeUndefined();
+    inst->vspeed = -inst->vspeed;
+    Instance_computeSpeedFromComponents(inst);
+    return RValue_makeUndefined();
+}
+
+// action_color(color) - sets the current draw color.
+static RValue builtin_action_color(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
+    Runner* runner = ctx->runner;
+    if (runner->renderer != nullptr) {
+        runner->renderer->drawColor = (uint32_t) RValue_toInt32(args[0]);
+    }
+    return RValue_makeUndefined();
+}
+
+// action_font(font, halign) - sets the current draw font and horizontal alignment.
+static RValue builtin_action_font(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
+    Runner* runner = ctx->runner;
+    if (runner->renderer != nullptr) {
+        runner->renderer->drawFont = RValue_toInt32(args[0]);
+        runner->renderer->drawHalign = RValue_toInt32(args[1]);
+    }
+    return RValue_makeUndefined();
+}
+
+// action_draw_text(text, x, y) - draws text at (x, y), respecting the relative flag.
+static RValue builtin_action_draw_text(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
+    Runner* runner = ctx->runner;
+    if (runner->renderer == nullptr) return RValue_makeUndefined();
+
+    char* str = RValue_toString(args[0]);
+    float x = (float) RValue_toReal(args[1]);
+    float y = (float) RValue_toReal(args[2]);
+
+    applyActionRelativeOffset(ctx, &x, &y);
+
+    PreprocessedText processedText = TextUtils_preprocessGmlTextIfNeeded(runner, str);
+    runner->renderer->vtable->drawText(runner->renderer, processedText.text, x, y, 1.0f, 1.0f, 0.0f);
+    PreprocessedText_free(processedText);
+    free(str);
+    return RValue_makeUndefined();
+}
+
+// action_draw_sprite(sprite_id, x, y, subimg) - draws the sprite at (x, y) using subimg (or instance's image_index if subimg < 0), respecting the relative flag.
+static RValue builtin_action_draw_sprite(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
+    Runner* runner = ctx->runner;
+    if (runner->renderer == nullptr) return RValue_makeUndefined();
+
+    int32_t spriteId = RValue_toInt32(args[0]);
+    float x = (float) RValue_toReal(args[1]);
+    float y = (float) RValue_toReal(args[2]);
+    int32_t subimg = RValue_toInt32(args[3]);
+
+    if (0 > subimg && ctx->currentInstance != nullptr) {
+        subimg = (int32_t) ctx->currentInstance->imageIndex;
+    }
+    applyActionRelativeOffset(ctx, &x, &y);
+
+    Renderer_drawSprite(runner->renderer, spriteId, subimg, x, y);
+    return RValue_makeUndefined();
+}
+
 // ===[ Tile Layer Functions ]===
 
 static TileLayerState* getOrCreateTileLayer(Runner* runner, int32_t depth) {
@@ -10573,6 +10694,18 @@ void VMBuiltins_registerAll(VMContext* ctx) {
     VM_registerBuiltin(ctx, "action_set_health", builtin_action_set_health);
     VM_registerBuiltin(ctx, "action_if_health", builtin_action_if_health);
     VM_registerBuiltin(ctx, "action_draw_health", builtin_action_draw_health);
+    VM_registerBuiltin(ctx, "action_sprite_set", builtin_action_sprite_set);
+    VM_registerBuiltin(ctx, "action_message", builtin_action_message);
+    VM_registerBuiltin(ctx, "action_another_room", builtin_action_another_room);
+    VM_registerBuiltin(ctx, "action_current_room", builtin_action_current_room);
+    VM_registerBuiltin(ctx, "action_next_room", builtin_action_next_room);
+    VM_registerBuiltin(ctx, "action_reverse_xdir", builtin_action_reverse_xdir);
+    VM_registerBuiltin(ctx, "action_reverse_ydir", builtin_action_reverse_ydir);
+    VM_registerBuiltin(ctx, "action_color", builtin_action_color);
+    VM_registerBuiltin(ctx, "action_colour", builtin_action_color);
+    VM_registerBuiltin(ctx, "action_font", builtin_action_font);
+    VM_registerBuiltin(ctx, "action_draw_text", builtin_action_draw_text);
+    VM_registerBuiltin(ctx, "action_draw_sprite", builtin_action_draw_sprite);
     VM_registerBuiltin(ctx, "alarm_set", builtin_alarm_set);
     VM_registerBuiltin(ctx, "alarm_get", builtin_alarm_get);
     VM_registerBuiltin(ctx, "action_sound",builtin_action_sound);
