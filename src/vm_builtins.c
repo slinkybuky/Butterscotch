@@ -9047,6 +9047,22 @@ static RValue builtin_tile_delete(VMContext* ctx, RValue* args, MAYBE_UNUSED int
     return RValue_makeUndefined();
 }
 
+// tile_set_alpha(id, alpha) - sets the alpha (0.0 to 1.0) of the tile with the given id.
+static RValue builtin_tile_set_alpha(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
+    Runner* runner = ctx->runner;
+    Room* room = runner->currentRoom;
+    if (room == nullptr) return RValue_makeUndefined();
+    uint32_t id = (uint32_t) RValue_toInt32(args[0]);
+    float alpha = (float) RValue_toReal(args[1]);
+    repeat(room->tileCount, i) {
+        if (room->tiles[i].instanceID != id) continue;
+        room->tiles[i].alpha = alpha;
+        return RValue_makeUndefined();
+    }
+    fprintf(stderr, "VM: tile_set_alpha: tile does not exist (%u)\n", id);
+    return RValue_makeUndefined();
+}
+
 // tile_get_ids_at_depth(depth) - returns a 1D array of tile ids whose tileDepth matches.
 static RValue builtin_tile_get_ids_at_depth(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
     Runner* runner = ctx->runner;
@@ -11414,6 +11430,7 @@ void VMBuiltins_registerAll(VMContext* ctx) {
         VM_registerBuiltin(ctx, "tile_layer_delete", builtin_tile_layer_delete);
         VM_registerBuiltin(ctx, "tile_delete", builtin_tile_delete);
         VM_registerBuiltin(ctx, "tile_get_ids_at_depth", builtin_tile_get_ids_at_depth);
+        VM_registerBuiltin(ctx, "tile_set_alpha", builtin_tile_set_alpha);
     }
 
     // Layer
