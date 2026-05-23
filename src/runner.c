@@ -2205,11 +2205,11 @@ static void dispatchCollisionEvents(Runner* runner) {
 
                     // Compute bboxes
                     if (selfDirty) {
-                        bboxSelf = Collision_computeBBox(dataWin, self);
+                        bboxSelf = Collision_computeBBox(runner, self);
                         sprSelf = Collision_getSprite(dataWin, self);
                         selfDirty = false;
                     }
-                    InstanceBBox bboxOther = Collision_computeBBox(dataWin, other);
+                    InstanceBBox bboxOther = Collision_computeBBox(runner, other);
 
 #ifdef ENABLE_VM_TRACING
                     bool traceThisPair = shouldTraceCollisionPair(runner->vmContext, dataWin, self, other);
@@ -2241,7 +2241,7 @@ static void dispatchCollisionEvents(Runner* runner) {
                     bool needsPrecise = (sprSelf != nullptr && sprSelf->sepMasks == 1) || (sprOther != nullptr && sprOther->sepMasks == 1) || Collision_obbNeedsSAT(sprSelf, self) || Collision_obbNeedsSAT(sprOther, other);
 
                     if (needsPrecise) {
-                        bool preciseHit = Collision_instancesOverlapPrecise(dataWin, runner->collisionCompatibilityMode, self, other, bboxSelf, bboxOther);
+                        bool preciseHit = Collision_instancesOverlapPrecise(runner, self, other, bboxSelf, bboxOther);
 #ifdef ENABLE_VM_TRACING
                         if (traceThisPair) fprintf(stderr, "  precise=%s (selfSepMasks=%d otherSepMasks=%d)\n", preciseHit ? "hit" : "miss", sprSelf ? sprSelf->sepMasks : -1, sprOther ? sprOther->sepMasks : -1);
 #endif
@@ -2307,8 +2307,8 @@ static void dispatchCollisionEvents(Runner* runner) {
                         // When we are in collision compatibility mode, we need to recheck if the player is STILL colliding after we have moved them
                         // If they are, we revert the collision
                         if (runner->collisionCompatibilityMode) {
-                            InstanceBBox bboxSelf2 = Collision_computeBBox(dataWin, self);
-                            InstanceBBox bboxOther2 = Collision_computeBBox(dataWin, other);
+                            InstanceBBox bboxSelf2 = Collision_computeBBox(runner, self);
+                            InstanceBBox bboxOther2 = Collision_computeBBox(runner, other);
                             if (bboxSelf2.valid && bboxOther2.valid) {
                                 bool aabbMiss2 = bboxSelf2.left >= bboxOther2.right || bboxOther2.left >= bboxSelf2.right || bboxSelf2.top >= bboxOther2.bottom || bboxOther2.top >= bboxSelf2.bottom;
                                 bool stillColliding = false;
@@ -2317,7 +2317,7 @@ static void dispatchCollisionEvents(Runner* runner) {
                                     Sprite* sprOther2 = Collision_getSprite(dataWin, other);
                                     bool needsPrecise2 = (sprSelf2 != nullptr && sprSelf2->sepMasks == 1) || (sprOther2 != nullptr && sprOther2->sepMasks == 1) || Collision_obbNeedsSAT(sprSelf2, self) || Collision_obbNeedsSAT(sprOther2, other);
                                     if (needsPrecise2) {
-                                        stillColliding = Collision_instancesOverlapPrecise(dataWin, runner->collisionCompatibilityMode, self, other, bboxSelf2, bboxOther2);
+                                        stillColliding = Collision_instancesOverlapPrecise(runner, self, other, bboxSelf2, bboxOther2);
                                     } else {
                                         stillColliding = true;
                                     }
@@ -2437,7 +2437,7 @@ static void dispatchOutsideRoomEvents(Runner* runner) {
             if (!inst->active) continue;
 
             bool outside;
-            InstanceBBox bbox = Collision_computeBBox(dataWin, inst);
+            InstanceBBox bbox = Collision_computeBBox(runner, inst);
             if (bbox.valid) {
                 outside = (0 > bbox.right || bbox.left > roomWidth || 0 > bbox.bottom || bbox.top > roomHeight);
             } else {
