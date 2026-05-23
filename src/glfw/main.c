@@ -1408,117 +1408,117 @@ int main(int argc, char* argv[]) {
                 }
                 free(json);
             }
-        }
 
-        // Query actual framebuffer size (differs from window size on Wayland with fractional scaling)
-        int fbWidth, fbHeight;
+            // Query actual framebuffer size (differs from window size on Wayland with fractional scaling)
+            int fbWidth, fbHeight;
 #ifdef USE_GLFW2
-        glfwGetWindowSize(&fbWidth, &fbHeight);
+            glfwGetWindowSize(&fbWidth, &fbHeight);
 #else
-        glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
+            glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
 #endif
 
-        // Clear the default framebuffer (window background) to black
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glClear(GL_COLOR_BUFFER_BIT);
+            // Clear the default framebuffer (window background) to black
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glClear(GL_COLOR_BUFFER_BIT);
 
-        if (!runner->appSurfaceEnabled) {
-            runner->applicationWidth = fbWidth;
-            runner->applicationHeight = fbHeight;
-            runner->usingAppSurface = false;
-        } else {
-            if (runner->applicationWidth <= 0 || runner->applicationHeight <= 0) {
-                runner->applicationWidth = (int32_t) gen8->defaultWindowWidth;
-                runner->applicationHeight = (int32_t) gen8->defaultWindowHeight;
+            if (!runner->appSurfaceEnabled) {
+                runner->applicationWidth = fbWidth;
+                runner->applicationHeight = fbHeight;
+                runner->usingAppSurface = false;
+            } else {
+                if (runner->applicationWidth <= 0 || runner->applicationHeight <= 0) {
+                    runner->applicationWidth = (int32_t) gen8->defaultWindowWidth;
+                    runner->applicationHeight = (int32_t) gen8->defaultWindowHeight;
+                }
+                runner->usingAppSurface = true;
             }
-            runner->usingAppSurface = true;
-        }
 
-        int32_t gameW = runner->applicationWidth;
-        int32_t gameH = runner->applicationHeight;
+            int32_t gameW = runner->applicationWidth;
+            int32_t gameH = runner->applicationHeight;
 
-        // The application surface (FBO) is sized to defaultWindowWidth x defaultWindowHeight.
-        // It is a bit hard to understand, but here's how it works:
-        // The Port X/Port Y controls the position of the game viewport within the application surface.
-        // The Port W/Port H controls the size of the game viewport within the application surface.
-        // Think of it like if you had an image (or... well, a framebuffer) and you are "pasting" it over the application surface.
-        // And the Port W/Port H are scaled by the window size too (set by the GEN8 chunk)
-        float displayScaleX;
-        float displayScaleY;
+            // The application surface (FBO) is sized to defaultWindowWidth x defaultWindowHeight.
+            // It is a bit hard to understand, but here's how it works:
+            // The Port X/Port Y controls the position of the game viewport within the application surface.
+            // The Port W/Port H controls the size of the game viewport within the application surface.
+            // Think of it like if you had an image (or... well, a framebuffer) and you are "pasting" it over the application surface.
+            // And the Port W/Port H are scaled by the window size too (set by the GEN8 chunk)
+            float displayScaleX;
+            float displayScaleY;
 
-        Runner_drawPre(runner, fbWidth, fbHeight);
-        Runner_computeViewDisplayScale(runner, gameW, gameH, &displayScaleX, &displayScaleY);
+            Runner_drawPre(runner, fbWidth, fbHeight);
+            Runner_computeViewDisplayScale(runner, gameW, gameH, &displayScaleX, &displayScaleY);
 
-        Runner_beginFrame(runner, gameW, gameH, fbWidth, fbHeight);
+            Runner_beginFrame(runner, gameW, gameH, fbWidth, fbHeight);
 
-        // Clear FBO with room background color
-        if (runner->drawBackgroundColor) {
-            int rInt = BGR_R(runner->backgroundColor);
-            int gInt = BGR_G(runner->backgroundColor);
-            int bInt = BGR_B(runner->backgroundColor);
-            int aInt = BGR_A(runner->backgroundColor);
-            glClearColor(rInt / 255.0f, gInt / 255.0f, bInt / 255.0f, aInt / 255.0f);
-        } else {
-            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        }
-        glClear(GL_COLOR_BUFFER_BIT);
+            // Clear FBO with room background color
+            if (runner->drawBackgroundColor) {
+                int rInt = BGR_R(runner->backgroundColor);
+                int gInt = BGR_G(runner->backgroundColor);
+                int bInt = BGR_B(runner->backgroundColor);
+                int aInt = BGR_A(runner->backgroundColor);
+                glClearColor(rInt / 255.0f, gInt / 255.0f, bInt / 255.0f, aInt / 255.0f);
+            } else {
+                glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            }
+            glClear(GL_COLOR_BUFFER_BIT);
 
-        Runner_drawViews(runner, gameW, gameH, displayScaleX, displayScaleY, debugShowCollisionMasks);
-        renderer->vtable->endFrameInit(renderer);
-        Runner_drawPost(runner, fbWidth, fbHeight);
-        renderer->vtable->endFrameEnd(renderer);
-        Runner_drawGUI(runner, fbWidth, fbHeight, gameW, gameH);
+            Runner_drawViews(runner, gameW, gameH, displayScaleX, displayScaleY, debugShowCollisionMasks);
+            renderer->vtable->endFrameInit(renderer);
+            Runner_drawPost(runner, fbWidth, fbHeight);
+            renderer->vtable->endFrameEnd(renderer);
+            Runner_drawGUI(runner, fbWidth, fbHeight, gameW, gameH);
 
-        // Capture screenshot if this frame matches a requested frame
-        bool shouldScreenshot = hmget(args.screenshotFrames, runner->frameCount);
+            // Capture screenshot if this frame matches a requested frame
+            bool shouldScreenshot = hmget(args.screenshotFrames, runner->frameCount);
 
-        if (shouldScreenshot) {
-            int32_t appId = runner->applicationSurfaceId;
-            GLuint readFbo;
+            if (shouldScreenshot) {
+                int32_t appId = runner->applicationSurfaceId;
+                GLuint readFbo;
 #ifdef ENABLE_LEGACY_GL
-            if (strcmp(args.renderer, "legacy-gl") == 0) {
-                readFbo = ((GLLegacyRenderer*) renderer)->surfaces[appId];
-            } else
+                if (strcmp(args.renderer, "legacy-gl") == 0) {
+                    readFbo = ((GLLegacyRenderer*) renderer)->surfaces[appId];
+                } else
 #endif
-            {
-                readFbo = ((GLRenderer*) renderer)->surfaces[appId];
+                {
+                    readFbo = ((GLRenderer*) renderer)->surfaces[appId];
+                }
+                captureScreenshot(readFbo, args.screenshotPattern, runner->frameCount, gameW, gameH);
+                glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
             }
-            captureScreenshot(readFbo, args.screenshotPattern, runner->frameCount, gameW, gameH);
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-        }
 
-        // Dump all surfaces if this frame matches a requested frame
-        bool shouldDumpSurfaces = hmget(args.screenshotSurfacesFrames, runner->frameCount);
+            // Dump all surfaces if this frame matches a requested frame
+            bool shouldDumpSurfaces = hmget(args.screenshotSurfacesFrames, runner->frameCount);
 
-        if (shouldDumpSurfaces) {
-            GLRenderer* gl = (GLRenderer*) renderer;
-            dumpAllSurfaces(gl, args.screenshotSurfacesPattern, runner->frameCount);
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-        }
+            if (shouldDumpSurfaces) {
+                GLRenderer* gl = (GLRenderer*) renderer;
+                dumpAllSurfaces(gl, args.screenshotSurfacesPattern, runner->frameCount);
+                glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            }
 
-        if (args.exitAtFrame >= 0 && runner->frameCount >= args.exitAtFrame) {
-            printf("Exiting at frame %d (--exit-at-frame)\n", runner->frameCount);
+            if (args.exitAtFrame >= 0 && runner->frameCount >= args.exitAtFrame) {
+                printf("Exiting at frame %d (--exit-at-frame)\n", runner->frameCount);
 #ifdef USE_GLFW2
-            glfwCloseWindow();
+                glfwCloseWindow();
 #else
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
+                glfwSetWindowShouldClose(window, GLFW_TRUE);
 #endif
-        }
+            }
 
-        if (shouldStep && args.traceFrames) {
-            double frameElapsedMs = (glfwGetTime() - frameStartTime) * 1000.0;
-            fprintf(stderr, "Frame %d (End, %.2f ms)\n", runner->frameCount, frameElapsedMs);
-        }
+            if (shouldStep && args.traceFrames) {
+                double frameElapsedMs = (glfwGetTime() - frameStartTime) * 1000.0;
+                fprintf(stderr, "Frame %d (End, %.2f ms)\n", runner->frameCount, frameElapsedMs);
+            }
 
-        // Only swap when there isn't a room change to match the original runner.
-        if (runner->pendingRoom == -1) {
+            // Only swap when there isn't a room change to match the original runner.
+            if (runner->pendingRoom == -1) {
 #ifdef USE_GLFW2
-            glfwSwapBuffers();
+                glfwSwapBuffers();
 #else
-            glfwSwapBuffers(window);
+                glfwSwapBuffers(window);
 #endif
+            }
+            Runner_handlePendingRoomChange(runner);
         }
-        Runner_handlePendingRoomChange(runner);
 
         // Limit frame rate to room speed (skip in headless mode for max speed!!)
         if (!args.headless && runner->currentRoom->speed > 0) {
