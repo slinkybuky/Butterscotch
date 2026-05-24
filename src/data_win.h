@@ -178,7 +178,7 @@ typedef struct {
     uint32_t effects;
     float volume;
     float pitch;
-    float pan; // -1.0 = full left, 0.0 = center, +1.0 = full right. Legacy field that is not used in BC11+.
+    float pan; // -1.0 = full left, 0.0 = center, +1.0 = full right. Legacy field that is not used in WAD11+.
     int32_t audioGroup;
     int32_t audioFile;
 } Sound;
