@@ -4328,6 +4328,20 @@ static RValue builtin_audio_play_sound(VMContext* ctx, RValue* args, MAYBE_UNUSE
     return RValue_makeReal((GMLReal) instanceId);
 }
 
+static RValue builtin_action_sound(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
+    AudioSystem* audio = getAudioSystem(ctx);
+    if (audio == nullptr) return RValue_makeReal(-1.0);
+
+    // Do not attempt to play "undefined" sounds
+    if (args[0].type == RVALUE_UNDEFINED)
+        return RValue_makeReal(-1.0);
+
+    int32_t soundIndex = RValue_toInt32(args[0]);
+    bool loop = RValue_toBool(args[1]);
+    int32_t instanceId = audio->vtable->playSound(audio, soundIndex, 10, loop);
+    return RValue_makeReal((GMLReal) instanceId);
+}
+
 static RValue builtin_audio_stop_sound(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
     AudioSystem* audio = getAudioSystem(ctx);
     if (audio == nullptr) return RValue_makeUndefined();
@@ -8874,8 +8888,6 @@ static RValue builtin_action_if_variable(VMContext* ctx, MAYBE_UNUSED RValue* ar
     return result;
 }
 
-STUB_RETURN_UNDEFINED(action_sound)
-
 #define LEGACY_DND_CMP_EQ 0
 #define LEGACY_DND_CMP_LT 1
 #define LEGACY_DND_CMP_GT 2
@@ -11398,7 +11410,7 @@ void VMBuiltins_registerAll(VMContext* ctx) {
     VM_registerBuiltin(ctx, "audio_create_stream", builtin_audio_create_stream);
     VM_registerBuiltin(ctx, "audio_destroy_stream", builtin_audio_destroy_stream);
     if (!isGMS2) {
-        VM_registerBuiltin(ctx, "action_sound",builtin_action_sound);
+        VM_registerBuiltin(ctx, "action_sound", builtin_action_sound);
         VM_registerBuiltin(ctx, "action_end_sound", builtin_audio_stop_sound);
         VM_registerBuiltin(ctx, "action_if_sound", builtin_audio_is_playing);
         VM_registerBuiltin(ctx, "sound_play", builtin_sound_play);
