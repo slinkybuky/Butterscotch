@@ -6396,6 +6396,20 @@ static RValue builtin_action_move_start(VMContext* ctx, MAYBE_UNUSED RValue* arg
     return RValue_makeUndefined();
 }
 
+// action_potential_step(x, y, stepsize, checkall): DnD wrapper around mp_potential_step that
+// honors the "relative" checkbox by shifting (x, y) by the current instance's position.
+static RValue builtin_action_potential_step(VMContext* ctx, MAYBE_UNUSED RValue* args, MAYBE_UNUSED int32_t argCount) {
+    GMLReal goalX = RValue_toReal(args[0]);
+    GMLReal goalY = RValue_toReal(args[1]);
+    GMLReal stepsize = RValue_toReal(args[2]);
+    bool checkall = RValue_toBool(args[3]);
+    if (ctx->actionRelativeFlag && ctx->currentInstance != nullptr) {
+        goalX += ctx->currentInstance->x;
+        goalY += ctx->currentInstance->y;
+    }
+    return builtinMpPotentialStepCommon(ctx, goalX, goalY, stepsize, INSTANCE_ALL, checkall);
+}
+
 static RValue builtin_action_snap(VMContext* ctx, MAYBE_UNUSED RValue* args, MAYBE_UNUSED int32_t argCount) {
     GMLReal hsnap = RValue_toReal(args[0]);
     GMLReal vsnap = RValue_toReal(args[1]);
@@ -12176,6 +12190,7 @@ void VMBuiltins_registerAll(VMContext* ctx) {
         VM_registerBuiltin(ctx, "action_move", builtin_action_move);
         VM_registerBuiltin(ctx, "action_move_to", builtin_action_move_to);
         VM_registerBuiltin(ctx, "action_move_start", builtin_action_move_start);
+        VM_registerBuiltin(ctx, "action_potential_step", builtin_action_potential_step);
         VM_registerBuiltin(ctx, "action_snap", builtin_action_snap);
         VM_registerBuiltin(ctx, "action_set_friction", builtin_action_set_friction);
         VM_registerBuiltin(ctx, "action_set_gravity", builtin_action_set_gravity);
