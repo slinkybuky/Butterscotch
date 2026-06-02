@@ -2099,6 +2099,22 @@ static void handleCallV(VMContext* ctx, uint32_t instr) {
         boundInstance = function.method->boundInstanceId;
         builtin = (BuiltinFunc) function.method->builtin;
         unresolvedName = function.method->unresolvedName;
+    } else if (DataWin_isVersionAtLeast(ctx->dataWin, 2, 3, 0, 0) && (function.type == RVALUE_INT32 || function.type == RVALUE_INT64 || function.type == RVALUE_REAL || function.type == RVALUE_BOOL)) {
+        // In GMS 2.3.0+: CALLV coerces any numeric operand to a script index and wraps it with method() before calling.
+        // Example: A button callback field assigned "field = some_script" without method().
+        int32_t rawArg = RValue_toInt32(function);
+        if (rawArg >= 0 && ctx->dataWin->func.functionCount > (uint32_t) rawArg) {
+            const char* funcName = ctx->dataWin->func.functions[rawArg].name;
+            if (funcName != nullptr) {
+                ptrdiff_t idx = shgeti(ctx->codeIndexByName, (char*) funcName);
+                if (idx >= 0) {
+                    codeIndex = ctx->codeIndexByName[idx].value;
+                } else {
+                    ptrdiff_t bidx = shgeti(ctx->builtinMap, (char*) funcName);
+                    if (bidx >= 0) builtin = ctx->builtinMap[bidx].value;
+                }
+            }
+        }
     }
 
     // Decide target self: prefer method's bound instance, else the stack-provided instance.
