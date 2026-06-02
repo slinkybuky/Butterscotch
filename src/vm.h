@@ -336,9 +336,15 @@ static inline char* VM_createDedupKey(const char* callerName, const char* funcNa
  */
 static inline bool VM_shouldTraceVariable(StringBooleanEntry* traceMap, const char* scopeName, const char* altScopeName, const char* varName) {
     if (shlen(traceMap) == 0) return false;
+    // "*" should trace EVERYTHING
     if (shgeti(traceMap, "*") != -1) return true;
+    // "obj_mainchara" should trace EVERY variable read/write to that object
     if (shgeti(traceMap, scopeName) != -1) return true;
+    // "self" should trace EVERY "self" scope variable read/write to ALL objects
     if (altScopeName != nullptr && shgeti(traceMap, altScopeName) != -1) return true;
+    // "hp" should trace EVERY "hp" variable read/write to ALL objects
+    if (shgeti(traceMap, varName) != -1) return true;
+    // "obj_mainchara.hp" should trace EVERY variable read/write to the "hp" variable on the "obj_mainchara" object.
     char formatted[strlen(scopeName) + 1 + strlen(varName) + 1];
     snprintf(formatted, sizeof(formatted), "%s.%s", scopeName, varName);
     if (shgeti(traceMap, formatted) != -1) return true;
