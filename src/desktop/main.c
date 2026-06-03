@@ -153,6 +153,7 @@ typedef struct {
     const char* renderer;
     YoYoOperatingSystem osType;
     int windowWidth, windowHeight; // 0 = auto (gen8 default, or the console-native size for console os-types)
+    float widescreenAspect; // "widescreen hack" target aspect ratio (width/height), 0 = disabled
     char** gameArgs; // stb_ds array of owned strings, gameArgs[0] = runner executable path
     bool lazyRooms;
     StringBooleanEntry* eagerRooms; // stb_ds string-keyed set of room names
@@ -239,6 +240,18 @@ static void resolveWindowSize(const CommandLineArgs* args, uint32_t gen8Width, u
             *outH = (int) gen8Height;
             break;
     }
+
+    // Widescreen hack handling to grow the window size to match
+    if (args->widescreenAspect > 0.0f && *outW > 0 && *outH > 0) {
+        float nativeAspect = (float) *outW / (float) *outH;
+        if (args->widescreenAspect > nativeAspect) {
+            int widened = (int) ((float) *outH * args->widescreenAspect + 0.5f);
+            if (widened > *outW) *outW = widened;
+        } else if (args->widescreenAspect < nativeAspect) {
+            int heightened = (int) ((float) *outW / args->widescreenAspect + 0.5f);
+            if (heightened > *outH) *outH = heightened;
+        }
+    }
 }
 
 // Extracts the Runner arguments from a string, returning the values on stb_ds array
@@ -307,6 +320,7 @@ static void parseCommandLineArgs(CommandLineArgs* args, int argc, char* argv[]) 
         {"eager-room", required_argument, nullptr, 'G'},
         {"os-type", required_argument, nullptr, 'O'},
         {"window-size", required_argument, nullptr, 'w'},
+        {"widescreen-hack", optional_argument, nullptr, 1000},
         {"profile-gml-scripts", required_argument, nullptr, 'q'},
         {"save-folder", required_argument, nullptr, 'B'},
         {"game-args", required_argument, nullptr, 'N'},
@@ -561,6 +575,24 @@ static void parseCommandLineArgs(CommandLineArgs* args, int argc, char* argv[]) 
                 }
                 args->windowWidth = w;
                 args->windowHeight = h;
+                break;
+            }
+            case 1000: {
+                if (optarg == nullptr) {
+                    args->widescreenAspect = 16.0f / 9.0f;
+                    break;
+                }
+                int aw = 0, ah = 0;
+                double ratio = 0.0;
+                char* endPtr;
+                if (sscanf(optarg, "%d:%d", &aw, &ah) == 2 && aw > 0 && ah > 0) {
+                    args->widescreenAspect = (float) aw / (float) ah;
+                } else if ((ratio = strtod(optarg, &endPtr)), *endPtr == '\0' && ratio > 0.0) {
+                    args->widescreenAspect = (float) ratio;
+                } else {
+                    fprintf(stderr, "Error: Invalid --widescreen-hack value '%s' (expected W:H like 16:9, or a decimal like 1.7778)\n", optarg);
+                    exit(1);
+                }
                 break;
             }
             default:
@@ -1369,6 +1401,30 @@ int main(int argc, char* argv[]) {
 
                 int32_t gameW = runner->applicationWidth;
                 int32_t gameH = runner->applicationHeight;
+
+                // Widescreen hack: render into a surface grown toward the requested aspect to fake a different aspect
+                // ratio. The game's logical applicationWidth/Height is left untouched (so the reads above stay the real
+                // size and this never compounds frame-to-frame); only the local gameW/gameH used for the projection/FBO
+                // grow. A wider-than-native target grows width (reveal left/right); a taller one grows height (reveal
+                // top/bottom). Runner_drawViews reads widescreenExtraWidth/Height to expand each view to match.
+                runner->widescreenExtraWidth = 0;
+                runner->widescreenExtraHeight = 0;
+                if (args.widescreenAspect > 0.0f && runner->usingAppSurface && gameW > 0 && gameH > 0) {
+                    float nativeAspect = (float) gameW / (float) gameH;
+                    if (args.widescreenAspect > nativeAspect) {
+                        int32_t targetW = (int32_t) ((float) gameH * args.widescreenAspect + 0.5f);
+                        if (targetW > gameW) {
+                            runner->widescreenExtraWidth = targetW - gameW;
+                            gameW = targetW;
+                        }
+                    } else if (args.widescreenAspect < nativeAspect) {
+                        int32_t targetH = (int32_t) ((float) gameW / args.widescreenAspect + 0.5f);
+                        if (targetH > gameH) {
+                            runner->widescreenExtraHeight = targetH - gameH;
+                            gameH = targetH;
+                        }
+                    }
+                }
 
                 // The application surface (FBO) is sized to defaultWindowWidth x defaultWindowHeight.
                 // It is a bit hard to understand, but here's how it works:

@@ -353,8 +353,7 @@ static void glBeginGUI(Renderer* renderer, int32_t guiW, int32_t guiH, int32_t p
     glEnable(GL_SCISSOR_TEST);
 
     Matrix4f projection;
-    Matrix4f_identity(&projection);
-    Matrix4f_ortho(&projection, 0.0f, (float) guiW, (float) guiH, 0.0f, -1.0f, 1.0f);
+    Matrix4f_guiProjection(&projection, (float) guiW, (float) guiH, (float) portW, (float) portH);
 
     glUseProgram(gl->shaderProgram);
     glUniformMatrix4fv(gl->uProjection, 1, GL_FALSE, projection.m);

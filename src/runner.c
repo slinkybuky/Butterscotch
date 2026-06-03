@@ -953,12 +953,27 @@ void Runner_computeViewDisplayScale(Runner* runner, int32_t gameW, int32_t gameH
     }
 }
 
+// Widescreen hack: widen one view axis from baseSize to surfaceSize while keeping the same pixels-per-world scale, growing the visible area symmetrically about the view center.
+static void expandViewAxis(int32_t pos, int32_t size, int32_t surfaceSize, int32_t baseSize, int32_t* outPos, int32_t* outSize) {
+    if (surfaceSize <= baseSize || baseSize <= 0) {
+        *outPos = pos;
+        *outSize = size;
+        return;
+    }
+    int32_t center = pos + size / 2;
+    *outSize = (int32_t) ((int64_t) size * surfaceSize / baseSize);
+    *outPos = center - *outSize / 2;
+}
+
 void Runner_drawViews(Runner* runner, int32_t gameW, int32_t gameH, float displayScaleX, float displayScaleY, bool debugShowCollisionMasks) {
     Renderer* renderer = runner->renderer;
     Room* activeRoom = runner->currentRoom;
     bool anyViewRendered = false;
 
     bool viewsEnabled = (activeRoom->flags & 1) != 0;
+
+    int32_t widescreenBaseW = gameW - runner->widescreenExtraWidth;
+    int32_t widescreenBaseH = gameH - runner->widescreenExtraHeight;
 
     if (viewsEnabled) {
         repeat(MAX_VIEWS, vi) {
@@ -968,10 +983,9 @@ void Runner_drawViews(Runner* runner, int32_t gameW, int32_t gameH, float displa
             GMLCamera* camera = Runner_getCameraForView(runner, (int32_t) vi);
             if (camera == nullptr) continue;
 
-            int32_t viewX = camera->viewX;
-            int32_t viewY = camera->viewY;
-            int32_t viewW = camera->viewWidth;
-            int32_t viewH = camera->viewHeight;
+            int32_t viewX, viewY, viewW, viewH;
+            expandViewAxis(camera->viewX, camera->viewWidth, gameW, widescreenBaseW, &viewX, &viewW);
+            expandViewAxis(camera->viewY, camera->viewHeight, gameH, widescreenBaseH, &viewY, &viewH);
             int32_t portX = (int32_t) ((float) view->portX * displayScaleX + 0.5f);
             int32_t portY = (int32_t) ((float) view->portY * displayScaleY + 0.5f);
             int32_t portW = (int32_t) ((float) view->portWidth * displayScaleX + 0.5f);
@@ -992,9 +1006,12 @@ void Runner_drawViews(Runner* runner, int32_t gameW, int32_t gameH, float displa
     }
 
     if (!anyViewRendered) {
-        // No views enabled: render with default full-screen view
+        // No views enabled: render with default full-screen view.
+        // gameW/gameH already include the widescreen extra, shift the world origin by half of it on each grown axis so the original room stays centered and the revealed area is split evenly between the opposing edges.
         runner->viewCurrent = 0;
-        renderer->vtable->beginView(renderer, 0, 0, gameW, gameH, 0, 0, gameW, gameH, 0.0f);
+        int32_t fullViewX = -(runner->widescreenExtraWidth / 2);
+        int32_t fullViewY = -(runner->widescreenExtraHeight / 2);
+        renderer->vtable->beginView(renderer, fullViewX, fullViewY, gameW, gameH, 0, 0, gameW, gameH, 0.0f);
         Runner_draw(runner);
 
         if (debugShowCollisionMasks) DebugOverlay_drawCollisionMasks(runner);
@@ -1775,6 +1792,8 @@ Runner* Runner_create(DataWin* dataWin, VMContext* vm, Renderer* renderer, FileS
     runner->applicationHeight = (int32_t) dataWin->gen8.defaultWindowHeight;
     runner->oldApplicationWidth = runner->applicationWidth;
     runner->oldApplicationHeight = runner->applicationHeight;
+    runner->widescreenExtraWidth = 0;
+    runner->widescreenExtraHeight = 0;
     runner->applicationSurfaceId = APPLICATION_SURFACE_ID;
     renderer->runner = runner;
 
@@ -2459,7 +2478,7 @@ static void dispatchCollisionEvents(Runner* runner) {
 
 // ===[ View Following + Clamping ]===
 // Single-axis follow with border-based scrolling, room clamping, and speed limit.
-static int32_t followAxis(int32_t viewPos, int32_t viewSize, int32_t targetPos, uint32_t border, int32_t speed, int32_t roomSize) {
+static int32_t followAxis(int32_t viewPos, int32_t viewSize, int32_t targetPos, uint32_t border, int32_t speed, int32_t roomSize, int32_t clampMargin) {
     int32_t pos = viewPos;
 
     // Border-based scrolling
@@ -2471,9 +2490,20 @@ static int32_t followAxis(int32_t viewPos, int32_t viewSize, int32_t targetPos, 
         pos = targetPos + (int32_t) border - viewSize;
     }
 
-    // Clamp to room bounds
-    if (0 > pos) pos = 0;
-    if (pos + viewSize > roomSize) pos = roomSize - viewSize;
+    // Clamp to room bounds.
+    if (clampMargin > 0) {
+        // Keep the widened view inside the room; if the room can't contain it, center it (split the spill evenly).
+        int32_t minPos = clampMargin;
+        int32_t maxPos = roomSize - viewSize - clampMargin;
+        if (minPos > maxPos) pos = (roomSize - viewSize) / 2;
+        else {
+            if (minPos > pos) pos = minPos;
+            if (pos > maxPos) pos = maxPos;
+        }
+    } else {
+        if (0 > pos) pos = 0;
+        if (pos + viewSize > roomSize) pos = roomSize - viewSize;
+    }
 
     // Speed limit
     if (speed >= 0) {
@@ -2507,8 +2537,15 @@ static void updateViews(Runner* runner) {
         if (target != nullptr) {
             int32_t ix = (int32_t) GMLReal_floor(target->x);
             int32_t iy = (int32_t) GMLReal_floor(target->y);
-            camera->viewX = followAxis(camera->viewX, camera->viewWidth, ix, camera->borderX, camera->speedX, (int32_t) room->width);
-            camera->viewY = followAxis(camera->viewY, camera->viewHeight, iy, camera->borderY, camera->speedY, (int32_t) room->height);
+            // Widescreen hack: the displayed view is widened in Runner_drawViews, revealing clampMargin extra world pixels on each side.
+            // Use the same expandViewAxis math here so the WIDENED view is clamped inside the room.
+            int32_t wideW, wideH, unused;
+            expandViewAxis(0, camera->viewWidth, runner->applicationWidth + runner->widescreenExtraWidth, runner->applicationWidth, &unused, &wideW);
+            expandViewAxis(0, camera->viewHeight, runner->applicationHeight + runner->widescreenExtraHeight, runner->applicationHeight, &unused, &wideH);
+            int32_t clampMarginX = (wideW - camera->viewWidth) / 2;
+            int32_t clampMarginY = (wideH - camera->viewHeight) / 2;
+            camera->viewX = followAxis(camera->viewX, camera->viewWidth, ix, camera->borderX, camera->speedX, (int32_t) room->width, clampMarginX);
+            camera->viewY = followAxis(camera->viewY, camera->viewHeight, iy, camera->borderY, camera->speedY, (int32_t) room->height, clampMarginY);
         }
     }
 }
