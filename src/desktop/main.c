@@ -49,7 +49,7 @@
 #include "utils.h"
 #include "profiler.h"
 
-enum gfx_api gfx;
+enum GraphicsAPI gfx;
 
 #if !defined(ENABLE_GLES) && (defined(ENABLE_MODERN_GL) || defined(ENABLE_LEGACY_GL))
 static void APIENTRY glDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, MAYBE_UNUSED GLsizei length, const GLchar* message, MAYBE_UNUSED const void* userParam) {
@@ -740,6 +740,16 @@ static void onCrashSignal(int sig) {
 // ===[ MAIN ]===
 int main(int argc, char* argv[]) {
     setbuf(stderr, NULL);
+
+#ifndef ENABLE_SW_RENDERER
+    gfx = SOFTWARE;
+#endif
+#ifndef ENABLE_LEGACY_GL
+    gfx = LEGACY_GL;
+#endif
+#ifndef ENABLE_MODERN_GL
+    gfx = MODERN_GL;
+#endif
 
     CommandLineArgs args;
     parseCommandLineArgs(&args, argc, argv);
