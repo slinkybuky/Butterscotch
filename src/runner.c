@@ -2349,14 +2349,14 @@ static bool adaptPath(Runner* runner, Instance* inst) {
     return atPathEnd;
 }
 
-void Runner_updateMousePosition(Runner* runner, int32_t winW, int32_t winH, double mx, double my) {
-    if (winW <= 0 || winH <= 0 || runner->currentRoom == nullptr) return;
+void Runner_updateMousePosition(Runner* runner, int32_t windowWidth, int32_t windowHeight, double mouseXInWindow, double mouseYInWindow) {
+    if (windowWidth <= 0 || windowHeight <= 0 || runner->currentRoom == nullptr) return;
 
     int32_t gameW = runner->renderGameW > 0 ? runner->renderGameW : runner->currentRoom->width;
     int32_t gameH = runner->renderGameH > 0 ? runner->renderGameH : runner->currentRoom->height;
 
-    double fboX = ((mx - runner->viewportX) / runner->viewportW) * gameW;
-    double fboY = ((my - runner->viewportY) / runner->viewportH) * gameH;
+    double fboX = ((mouseXInWindow - runner->viewportX) / runner->viewportW) * gameW;
+    double fboY = ((mouseYInWindow - runner->viewportY) / runner->viewportH) * gameH;
 
     runner->mouse->screenX = fboX;
     runner->mouse->screenY = fboY;
