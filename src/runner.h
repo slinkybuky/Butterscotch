@@ -366,6 +366,7 @@ typedef struct {
     TileLayerMapEntry* tileLayerMap; // stb_ds hashmap: depth -> tile layer state
     RuntimeLayer* runtimeLayers; // stb_ds array, index-parallel to currentRoom->layers
     RuntimeView views[MAX_VIEWS];
+    bool viewsEnabled;
     GMLCamera defaultCameras[MAX_DEFAULT_ROOM_CAMERAS]; // whole-array snapshot of Runner.defaultCameras (room-scoped)
 } SavedRoomState;
 
@@ -460,6 +461,7 @@ struct Runner {
     uint32_t nextLayerId;        // counter for IDs of layers/elements created at runtime
     SavedRoomState* savedRoomStates; // array of size dataWin->room.count, for persistent room support
     int32_t viewCurrent; // index of the view currently being drawn (for view_current)
+    bool viewsEnabled;   // runtime-mutable global view system toggle (view_enabled); seeded from room->flags & 1 on room enter
     int32_t renderGameW; // FBO width used by the last frame (= max port bound), 0 if not yet rendered
     int32_t renderGameH; // FBO height used by the last frame (= max port bound), 0 if not yet rendered
     int32_t viewportX;   // X offset in window (letterboxing)

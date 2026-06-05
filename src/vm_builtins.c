@@ -371,6 +371,7 @@ static const BuiltinVarEntry BUILTIN_VAR_TABLE[] = {
     { "view_angle", BUILTIN_VAR_VIEW_ANGLE },
     { "view_camera", BUILTIN_VAR_CAMERA_VIEW },
     { "view_current", BUILTIN_VAR_VIEW_CURRENT },
+    { "view_enabled", BUILTIN_VAR_VIEW_ENABLED },
     { "view_hborder", BUILTIN_VAR_VIEW_HBORDER },
     { "view_hport", BUILTIN_VAR_VIEW_HPORT },
     { "view_hspeed", BUILTIN_VAR_VIEW_HSPEED },
@@ -725,8 +726,12 @@ RValue VMBuiltins_getVariable(VMContext* ctx, int16_t builtinVarId, const char* 
 
         // View properties
         case BUILTIN_VAR_VIEW_CURRENT:
-        case BUILTIN_VAR_CAMERA_VIEW:
             return RValue_makeReal((GMLReal) runner->viewCurrent);
+        case BUILTIN_VAR_VIEW_ENABLED:
+            return RValue_makeBool(runner->viewsEnabled);
+        case BUILTIN_VAR_CAMERA_VIEW:
+            if (arrayIndex >= 0 && MAX_VIEWS > arrayIndex) return RValue_makeReal((GMLReal) runner->views[arrayIndex].cameraId);
+            return RValue_makeReal(-1.0);
         case BUILTIN_VAR_VIEW_XVIEW: {
             GMLCamera* camera = Runner_getCameraForView(runner, arrayIndex);
             if (camera != nullptr) return RValue_makeReal((GMLReal) camera->viewX);
@@ -1397,6 +1402,12 @@ void VMBuiltins_setVariable(VMContext* ctx, int16_t builtinVarId, const char* na
             return;
         case BUILTIN_VAR_VIEW_VISIBLE:
             if (arrayIndex >= 0 && MAX_VIEWS > arrayIndex) runner->views[arrayIndex].enabled = RValue_toBool(val);
+            return;
+        case BUILTIN_VAR_VIEW_ENABLED:
+            runner->viewsEnabled = RValue_toBool(val);
+            return;
+        case BUILTIN_VAR_CAMERA_VIEW:
+            if (arrayIndex >= 0 && MAX_VIEWS > arrayIndex) runner->views[arrayIndex].cameraId = RValue_toInt32(val);
             return;
         case BUILTIN_VAR_VIEW_ANGLE: {
             GMLCamera* camera = Runner_getCameraForView(runner, arrayIndex);
