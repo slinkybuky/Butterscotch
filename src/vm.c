@@ -730,6 +730,11 @@ static RValue resolveVariableRead(VMContext* ctx, int32_t instanceType, uint32_t
                     val.ownsReference = false;
                     return val;
                 }
+                // Static variables: a struct field declared "static" lives on the constructor's shared static struct, not the instance.
+                RValue staticVal;
+                if (tryReadStaticFallback(ctx, peekInst, varDef->varID, &access, &staticVal)) {
+                    return staticVal;
+                }
             }
         }
 
@@ -742,6 +747,11 @@ static RValue resolveVariableRead(VMContext* ctx, int32_t instanceType, uint32_t
                 RValue val = *selfSlot;
                 val.ownsReference = false;
                 return val;
+            }
+            // Static variables: a struct field declared "static" lives on the constructor's shared static struct, not the instance.
+            RValue staticVal;
+            if (tryReadStaticFallback(ctx, self, varDef->varID, &access, &staticVal)) {
+                return staticVal;
             }
         }
 
