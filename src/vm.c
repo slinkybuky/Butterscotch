@@ -355,14 +355,17 @@ void VM_arraySet(MAYBE_UNUSED VMContext* ctx, RValue* arrayRef, int32_t index, R
     storeIntoArraySlot(GMLArray_slot(arr, index), val);
 }
 
+// Creates a copy of "name"
 int32_t VM_getOrAllocateSelfVarID(VMContext* ctx, const char* name) {
-    ptrdiff_t slot = shgeti(ctx->selfVarNameMap, (char*) name);
+    ptrdiff_t slot = shgeti(ctx->selfVarNameMap, name);
     if (slot >= 0) return ctx->selfVarNameMap[slot].value;
     int32_t id = ctx->nextDynamicSelfVarID++;
-    shput(ctx->selfVarNameMap, (char*) name, id);
+    shput(ctx->selfVarNameMap, safeStrdup(name), id);
     return id;
 }
 
+// Creates a copy of "name"
+// This does NOT resolve builtin variables!
 void VM_structSet(VMContext* ctx, Instance* structInst, const char* name, RValue val) {
     int32_t varID = VM_getOrAllocateSelfVarID(ctx, name);
     Instance_setSelfVar(structInst, varID, val);
@@ -3610,13 +3613,13 @@ VMContext* VM_create(DataWin* dataWin) {
     // Build selfVarNameMap: varName -> varID for self/instance-scoped variables.
     ctx->selfVarNameMap = nullptr;
     int32_t maxSelfVarID = 0;
-    forEach(Variable, v3, dataWin->vari.variables, dataWin->vari.variableCount) {
-        if (v3->varID >= 0 && (v3->instanceType == INSTANCE_SELF || 0 > v3->instanceType)) {
-            ptrdiff_t existing = shgeti(ctx->selfVarNameMap, (char*) v3->name);
+    forEach(Variable, variable, dataWin->vari.variables, dataWin->vari.variableCount) {
+        if (variable->varID >= 0 && (variable->instanceType == INSTANCE_SELF || 0 > variable->instanceType)) {
+            ptrdiff_t existing = shgeti(ctx->selfVarNameMap, (char*) variable->name);
             if (0 > existing) {
-                shput(ctx->selfVarNameMap, (char*) v3->name, v3->varID);
+                shput(ctx->selfVarNameMap, (char*) safeStrdup(variable->name), variable->varID);
             }
-            if (v3->varID > maxSelfVarID) maxSelfVarID = v3->varID;
+            if (variable->varID > maxSelfVarID) maxSelfVarID = variable->varID;
         }
     }
     ctx->nextDynamicSelfVarID = maxSelfVarID + 1;
@@ -4540,6 +4543,9 @@ void VM_free(VMContext* ctx) {
     // Free hash maps
     shfree(ctx->codeIndexByName);
     shfree(ctx->globalVarNameMap);
+    repeat(shlen(ctx->selfVarNameMap), i) {
+        free(ctx->selfVarNameMap[i].key);
+    }
     shfree(ctx->selfVarNameMap);
     repeat(shlen(ctx->codeLocalsMap), i) {
         free(ctx->codeLocalsMap[i].key);

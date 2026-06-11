@@ -3529,10 +3529,13 @@ static void variableInstanceSetOn(VMContext* ctx, Instance* target, const char* 
         ctx->currentInstance = saved;
         return;
     }
+
     // Lookup varID by name from VARI (self scope)
     ptrdiff_t slot = shgeti(ctx->selfVarNameMap, (char*) name);
     if (0 > slot) {
-        fprintf(stderr, "variable_instance_set: variable '%s' not found in VARI table\n", name);
+        // Not on the slot, register manually
+        int32_t dynamicallyAllocatedVarID = VM_getOrAllocateSelfVarID(ctx, name);
+        Instance_setSelfVar(target, dynamicallyAllocatedVarID, val);
         return;
     }
     Instance_setSelfVar(target, ctx->selfVarNameMap[slot].value, val);
@@ -3667,6 +3670,7 @@ static RValue builtin_variable_struct_get(VMContext* ctx, RValue* args, int32_t 
 
 static RValue builtin_variable_struct_set(VMContext* ctx, RValue* args, int32_t argCount) {
     if (3 > argCount || args[1].type != RVALUE_STRING) return RValue_makeUndefined();
+    // We can't use VM_structSet directly here because we DO NOT resolve builtin variables from VM_structSet
     variableScopedSet(ctx, RValue_toInt32(args[0]), args[1].string, args[2], true, "variable_struct_set");
     return RValue_makeUndefined();
 }
