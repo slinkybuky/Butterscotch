@@ -11968,6 +11968,67 @@ static RValue builtin_layer_tile_alpha(VMContext* ctx, RValue* args, MAYBE_UNUSE
     return RValue_makeUndefined();
 }
 
+static RoomTile* findTileElement(Runner* runner, RValue idArg) {
+    RuntimeLayerElement* el = Runner_findLayerElementById(runner, RValue_toInt32(idArg), nullptr);
+    if (el == nullptr || el->type != RuntimeLayerElementType_Tile)
+        return nullptr;
+    return el->tileElement;
+}
+
+static RValue builtin_layer_tile_x(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
+    RoomTile* tile = findTileElement(ctx->runner, args[0]);
+    if (tile != nullptr)
+        tile->x = RValue_toInt32(args[1]);
+    return RValue_makeUndefined();
+}
+
+static RValue builtin_layer_tile_y(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
+    RoomTile* tile = findTileElement(ctx->runner, args[0]);
+    if (tile != nullptr)
+        tile->y = RValue_toInt32(args[1]);
+    return RValue_makeUndefined();
+}
+
+static RValue builtin_layer_tile_get_x(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
+    RoomTile* tile = findTileElement(ctx->runner, args[0]);
+    if (tile == nullptr)
+        return RValue_makeReal(0.0);
+    return RValue_makeReal((GMLReal) tile->x);
+}
+
+static RValue builtin_layer_tile_get_y(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
+    RoomTile* tile = findTileElement(ctx->runner, args[0]);
+    if (tile == nullptr)
+        return RValue_makeReal(0.0);
+    return RValue_makeReal((GMLReal) tile->y);
+}
+
+static RValue builtin_layer_tile_get_xscale(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
+    RoomTile* tile = findTileElement(ctx->runner, args[0]);
+    if (tile == nullptr)
+        return RValue_makeReal(1.0);
+    return RValue_makeReal((GMLReal) tile->scaleX);
+}
+
+static RValue builtin_layer_tile_get_yscale(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
+    RoomTile* tile = findTileElement(ctx->runner, args[0]);
+    if (tile == nullptr)
+        return RValue_makeReal(1.0);
+    return RValue_makeReal((GMLReal) tile->scaleY);
+}
+
+static RValue builtin_layer_tile_get_region(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
+    RoomTile* tile = findTileElement(ctx->runner, args[0]);
+    if (tile == nullptr)
+        return RValue_makeReal(-1.0);
+    RValue arr = VM_createArray(ctx);
+    VM_arraySet(ctx, &arr, 0, RValue_makeReal((GMLReal) tile->sourceX));
+    VM_arraySet(ctx, &arr, 1, RValue_makeReal((GMLReal) tile->sourceY));
+    VM_arraySet(ctx, &arr, 2, RValue_makeReal((GMLReal) tile->width));
+    VM_arraySet(ctx, &arr, 3, RValue_makeReal((GMLReal) tile->height));
+    return arr;
+}
+
 #if IS_WAD17_OR_HIGHER_ENABLED
 static RValue builtin_layer_get_all_elements(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
     Runner* runner = ctx->runner;
@@ -14976,6 +15037,13 @@ void VMBuiltins_registerAll(VMContext* ctx) {
     VM_registerBuiltin(ctx, "layer_background_get_id", builtin_layer_background_get_id);
     VM_registerBuiltin(ctx, "layer_background_index", builtin_layer_background_index);
     VM_registerBuiltin(ctx, "layer_tile_alpha", builtin_layer_tile_alpha);
+    VM_registerBuiltin(ctx, "layer_tile_x", builtin_layer_tile_x);
+    VM_registerBuiltin(ctx, "layer_tile_y", builtin_layer_tile_y);
+    VM_registerBuiltin(ctx, "layer_tile_get_x", builtin_layer_tile_get_x);
+    VM_registerBuiltin(ctx, "layer_tile_get_y", builtin_layer_tile_get_y);
+    VM_registerBuiltin(ctx, "layer_tile_get_xscale", builtin_layer_tile_get_xscale);
+    VM_registerBuiltin(ctx, "layer_tile_get_yscale", builtin_layer_tile_get_yscale);
+    VM_registerBuiltin(ctx, "layer_tile_get_region", builtin_layer_tile_get_region);
     VM_registerBuiltin(ctx, "layer_background_destroy", builtin_layer_background_destroy);
 
     // GMS2 internal
