@@ -233,7 +233,7 @@ static uint32_t resolveFuncOperand(const uint8_t* extraData) {
 //
 // Reads return a weak view of the slot value - callers must incRef + set ownsReference if they want to retain it.
 //
-// Writes (VARTYPE_ARRAY Pop, BREAK_POPAF, BREAK_PUSHAC materialisation) go through VM_arrayWriteAt,
+// Writes (VARTYPE_ARRAY Pop, BREAK_POPAF, BREAK_PUSHAC materialisation) go through VM_arraySetWithCoW,
 // which handles:
 //   * slot-not-yet-an-array -> allocate a fresh GMLArray
 //   * CoW fork when another scope/slot owns the array (BC16 predicate uses the slot address; BC17+ predicate compares against ctx->currentArrayOwner set by BREAK_SETOWNER)
@@ -247,7 +247,7 @@ static Instance* findInstanceByTarget(VMContext* ctx, int32_t target);
 // so the upcoming store (Pop for one dimensional arrays, or the chain's eventual BREAK_POPAF for multi-dimensional arrays) can write in place.
 // Essentially "If we don't own this array, copy it and decrease the reference count of the original array".
 // (See GameMaker-HTML5's "__yy_gml_array_check" / "__yy_gml_array_check_index_chain").
-static void cowForkSlotForWriteIfNeeded(VMContext* ctx, RValue* slot) {
+static void cowForkSlotForModificationIfNeeded(VMContext* ctx, RValue* slot) {
     GMLArray* arr = slot->array;
     if (arr->owner == ctx->currentArrayOwner) return;
     GMLArray* clone = GMLArray_clone(arr, ctx->currentArrayOwner);
@@ -259,7 +259,7 @@ static void cowForkSlotForWriteIfNeeded(VMContext* ctx, RValue* slot) {
 // Write array[index] = val with CoW semantics. Always makes an independent copy of val, caller retains ownership and must RValue_free(&val) when done.
 // `slot` is the RValue* holding the array (e.g. &globalVars[id], &inst->selfVars[..].value, &localVars[slot]).
 // Returns the (possibly newly-forked) GMLArray* now in *slot.
-static GMLArray* VM_arrayWriteAt(VMContext* ctx, RValue* slot, int32_t index, RValue val) {
+static GMLArray* VM_arraySetWithCoW(VMContext* ctx, RValue* slot, int32_t index, RValue val) {
     require(slot != nullptr);
     requireMessageFormatted(__FILE__, __LINE__, index >= 0, "Trying to write to an array using a negative index! Index: %d", index);
 
@@ -285,7 +285,7 @@ static GMLArray* VM_arrayWriteAt(VMContext* ctx, RValue* slot, int32_t index, RV
 
     // Case 2: CoW fork check.
     if (IS_WAD17_OR_HIGHER(ctx)) {
-        cowForkSlotForWriteIfNeeded(ctx, slot);
+        cowForkSlotForModificationIfNeeded(ctx, slot);
         arr = slot->array;
     } else if (arr->refCount > 1 && arr->owner != (void*) slot) {
         GMLArray* clone = GMLArray_clone(arr, intendedOwner);
@@ -336,7 +336,7 @@ void VM_structSet(VMContext* ctx, Instance* structInst, const char* name, RValue
     int32_t varID = VM_getOrAllocateSelfVarID(ctx, name);
     if (arrayIndex >= 0) {
         RValue* slot = IntRValueHashMap_getOrInsertUndefined(&structInst->selfVars, varID);
-        VM_arrayWriteAt(ctx, slot, arrayIndex, val);
+        VM_arraySetWithCoW(ctx, slot, arrayIndex, val);
     } else {
         Instance_setSelfVar(structInst, varID, val);
     }
@@ -801,7 +801,7 @@ static RValue resolveVariableRead(VMContext* ctx, int32_t instanceType, uint32_t
     }
 
     // Resolve the variable's scalar slot pointer for the target scope. Array-valued vars live inline as RVALUE_ARRAY in the same slot.
-    // GMLArray_getOnArrayRef handles the array indirection when access.isArray, VM_arrayWriteAt handles CoW forking when writing.
+    // GMLArray_getOnArrayRef handles the array indirection when access.isArray, VM_arraySetWithCoW handles CoW forking when writing.
     RValue* slot = nullptr;
     switch (instanceType) {
         case INSTANCE_LOCAL: {
@@ -880,10 +880,10 @@ static void writeSingleInstanceVariable(VMContext* ctx, Instance* inst, Variable
         return;
     }
 
-    // Array write - materialise-on-write via VM_arrayWriteAt. getOrInsertUndefined returns the existing slot or inserts an UNDEFINED entry and returns it.
+    // Array write - materialise-on-write via VM_arraySetWithCoW. getOrInsertUndefined returns the existing slot or inserts an UNDEFINED entry and returns it.
     if (access->isArray) {
         RValue* slot = IntRValueHashMap_getOrInsertUndefined(&inst->selfVars, varDef->varID);
-        VM_arrayWriteAt((VMContext*) ctx, slot, access->arrayIndex, val);
+        VM_arraySetWithCoW((VMContext*) ctx, slot, access->arrayIndex, val);
         return;
     }
 
@@ -1069,7 +1069,7 @@ static void resolveVariableWrite(VMContext* ctx, int32_t instanceType, uint32_t 
         return;
     }
 
-    // Resolve the slot pointer for this scope. For INSTANCE_SELF we materialise a sparse selfVars entry if it doesn't exist so VM_arrayWriteAt has a stable slot to own.
+    // Resolve the slot pointer for this scope. For INSTANCE_SELF we materialise a sparse selfVars entry if it doesn't exist so VM_arraySetWithCoW has a stable slot to own.
     RValue* slot = nullptr;
     switch (instanceType) {
         case INSTANCE_LOCAL: {
@@ -1100,9 +1100,9 @@ static void resolveVariableWrite(VMContext* ctx, int32_t instanceType, uint32_t 
         }
     }
 
-    // Array write via VM_arrayWriteAt (handles CoW fork, grow, owner stamping).
+    // Array write via VM_arraySetWithCoW.
     if (access.isArray) {
-        VM_arrayWriteAt(ctx, slot, access.arrayIndex, val);
+        VM_arraySetWithCoW(ctx, slot, access.arrayIndex, val);
 #ifdef ENABLE_VM_TRACING
         const char* scopeName =
             instanceType == INSTANCE_LOCAL ? "local" :
@@ -1261,7 +1261,7 @@ static void handlePush(VMContext* ctx, uint32_t instr, const uint8_t* extraData,
                     fresh->owner = IS_WAD17_OR_HIGHER(ctx) ? ctx->currentArrayOwner : (void*) slot;
                     *slot = RValue_makeArray(fresh);
                 } else if (forWrite) {
-                    cowForkSlotForWriteIfNeeded(ctx, slot);
+                    cowForkSlotForModificationIfNeeded(ctx, slot);
                 }
                 GMLArray* top = slot->array;
                 GMLArray_growTo(top, firstIndex + 1);
@@ -1273,7 +1273,7 @@ static void handlePush(VMContext* ctx, uint32_t instr, const uint8_t* extraData,
                     sub->owner = top->owner;
                     *topSlot = RValue_makeArray(sub);
                 } else if (forWrite) {
-                    cowForkSlotForWriteIfNeeded(ctx, topSlot);
+                    cowForkSlotForModificationIfNeeded(ctx, topSlot);
                 }
                 // Push a weak ref to the sub-array — short-lived, consumed by the next BREAK op.
                 stackPush(ctx, RValue_makeArrayWeak(topSlot->array));
@@ -1316,7 +1316,7 @@ static void pushTopLevelArrayRef(VMContext* ctx, RValue* slot, bool forWrite) {
         fresh->owner = IS_WAD17_OR_HIGHER(ctx) ? ctx->currentArrayOwner : (void*) slot;
         *slot = RValue_makeArray(fresh);
     } else if (forWrite) {
-        cowForkSlotForWriteIfNeeded(ctx, slot);
+        cowForkSlotForModificationIfNeeded(ctx, slot);
     }
     stackPush(ctx, RValue_makeArrayWeak(slot->array));
 }
@@ -1486,7 +1486,7 @@ static void handlePop(VMContext* ctx, uint32_t instr, uint8_t type1, uint8_t typ
 #endif
             }
         } else {
-            // Resolve slot for this scope: VM_arrayWriteAt handles CoW + materialisation + grow.
+            // Resolve slot for this scope: VM_arraySetWithCoW handles CoW + materialisation + grow.
             RValue* slot = nullptr;
             switch (instanceType) {
                 case INSTANCE_LOCAL: {
@@ -1530,7 +1530,7 @@ static void handlePop(VMContext* ctx, uint32_t instr, uint8_t type1, uint8_t typ
                 }
             }
             if (slot != nullptr) {
-                VM_arrayWriteAt(ctx, slot, arrayIndex, val);
+                VM_arraySetWithCoW(ctx, slot, arrayIndex, val);
 #ifdef ENABLE_VM_TRACING
                 bool isSelfScope = (instanceType != INSTANCE_LOCAL && instanceType != INSTANCE_GLOBAL);
                 const char* scopeName = instanceType == INSTANCE_LOCAL ? "local" : instanceType == INSTANCE_GLOBAL ? "global" : "self";
@@ -2688,7 +2688,7 @@ static void handleBreakPushAF(VMContext* ctx) {
 
 static void handleBreakPopAF(VMContext* ctx) {
     // Pop index + array ref + value, store value at array[index].
-    // CoW via VM_arrayWriteAt requires a slot pointer, since the stack-held arrayRef is a weak view, the real slot is whatever variable holds this array.
+    // CoW via VM_arraySetWithCoW requires a slot pointer, since the stack-held arrayRef is a weak view, the real slot is whatever variable holds this array.
     // We can't easily recover the slot here, so we write directly into the array (no CoW fork at this level, fork already happened when the top-level variable was first written, or on a PUSHAC materialisation).
     // Assert the array is uniquely-owned or matches the current scope owner. A mismatch here means a shared/aliased array is about to be mutated in place, which silently breaks CoW semantics. BC17+ default mode (pass by reference) is expected to satisfy this since fork already happened at the top-level write. If this fires, a CoW path upstream failed to fork.
     int32_t idx = stackPopInt32(ctx);
@@ -2720,7 +2720,7 @@ static void handleBreakPushAC(VMContext* ctx, uint32_t instrAddr) {
         sub->owner = ctx->currentArrayOwner;
         *parentSlot = RValue_makeArray(sub);
     } else {
-        cowForkSlotForWriteIfNeeded(ctx, parentSlot);
+        cowForkSlotForModificationIfNeeded(ctx, parentSlot);
     }
     stackPush(ctx, RValue_makeArrayWeak(parentSlot->array));
     RValue_free(&arrayRef);
