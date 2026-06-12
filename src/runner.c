@@ -936,6 +936,22 @@ void Runner_draw(Runner* runner) {
     Runner_drawBackgrounds(runner, true);
 }
 
+// Open a GUI-space draw pass and remember its parameters so surface_reset_target can restore the GUI target + projection when the surface stack pops back to empty mid-pass.
+static void beginGuiPass(Runner* runner, int32_t guiW, int32_t guiH, int32_t portW, int32_t portH, int32_t targetSurfaceId) {
+    runner->inGuiPass = true;
+    runner->guiPassW = guiW;
+    runner->guiPassH = guiH;
+    runner->guiPassPortW = portW;
+    runner->guiPassPortH = portH;
+    runner->guiPassTarget = targetSurfaceId;
+    runner->renderer->vtable->beginGUI(runner->renderer, guiW, guiH, 0, 0, portW, portH, targetSurfaceId);
+}
+
+static void endGuiPass(Runner* runner) {
+    runner->renderer->vtable->endGUI(runner->renderer);
+    runner->inGuiPass = false;
+}
+
 void Runner_drawGUI(Runner* runner, int32_t windowW, int32_t windowH, int32_t targetW, int32_t targetH) {
     rebuildDrawableCacheIfDirty(runner);
     Drawable* drawables = runner->cachedDrawables;
@@ -943,11 +959,11 @@ void Runner_drawGUI(Runner* runner, int32_t windowW, int32_t windowH, int32_t ta
 
     int32_t guiW = runner->guiWidth > 0 ? runner->guiWidth : targetW;
     int32_t guiH = runner->guiHeight > 0 ? runner->guiHeight : targetH;
-    runner->renderer->vtable->beginGUI(runner->renderer, guiW, guiH, 0, 0, windowW, windowH);
+    beginGuiPass(runner, guiW, guiH, windowW, windowH, RENDER_TARGET_HOST_FRAMEBUFFER);
     fireDrawSubtype(runner, drawables, drawableCount, DRAW_GUI_BEGIN);
     fireDrawSubtype(runner, drawables, drawableCount, DRAW_GUI);
     fireDrawSubtype(runner, drawables, drawableCount, DRAW_GUI_END);
-    runner->renderer->vtable->endGUI(runner->renderer);
+    endGuiPass(runner);
 }
 
 void Runner_drawPre(Runner* runner, int32_t windowW, int32_t windowH) {
@@ -955,9 +971,10 @@ void Runner_drawPre(Runner* runner, int32_t windowW, int32_t windowH) {
     Drawable* drawables = runner->cachedDrawables;
     int32_t drawableCount = (int32_t) arrlen(drawables);
 
-    runner->renderer->vtable->beginGUI(runner->renderer, windowW, windowH, 0, 0, windowW, windowH);
+    // Pre Draw runs before the app-surface blit, so it targets the application surface.
+    beginGuiPass(runner, windowW, windowH, windowW, windowH, runner->applicationSurfaceId);
     fireDrawSubtype(runner, drawables, drawableCount, DRAW_PRE);
-    runner->renderer->vtable->endGUI(runner->renderer);
+    endGuiPass(runner);
 }
 
 void Runner_drawPost(Runner* runner, int32_t windowW, int32_t windowH) {
@@ -965,9 +982,9 @@ void Runner_drawPost(Runner* runner, int32_t windowW, int32_t windowH) {
     Drawable* drawables = runner->cachedDrawables;
     int32_t drawableCount = (int32_t) arrlen(drawables);
 
-    runner->renderer->vtable->beginGUI(runner->renderer, windowW, windowH, 0, 0, windowW, windowH);
+    beginGuiPass(runner, windowW, windowH, windowW, windowH, RENDER_TARGET_HOST_FRAMEBUFFER);
     fireDrawSubtype(runner, drawables, drawableCount, DRAW_POST);
-    runner->renderer->vtable->endGUI(runner->renderer);
+    endGuiPass(runner);
 }
 
 void Runner_computeViewDisplayScale(Runner* runner, int32_t gameW, int32_t gameH, float* outScaleX, float* outScaleY) {
@@ -3726,6 +3743,11 @@ bool Runner_surfaceResetTarget(Runner* runner) {
     int32_t newTop = findStackTop(runner);
     int32_t newTarget = newTop == -1 ? runner->applicationSurfaceId : runner->surfaceStack[newTop];
     runner->renderer->vtable->setRenderTarget(runner->renderer, newTarget);
+    if (newTop == -1 && runner->inGuiPass) {
+        // Inside Pre Draw / Post Draw / Draw GUI the base target is the GUI pass target with the GUI projection, not the room view.
+        // (See GameMaker-HTML5's g_InGUI_Zone)
+        runner->renderer->vtable->beginGUI(runner->renderer, runner->guiPassW, runner->guiPassH, 0, 0, runner->guiPassPortW, runner->guiPassPortH, runner->guiPassTarget);
+    }
     return true;
 }
 

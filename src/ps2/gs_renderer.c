@@ -1157,7 +1157,8 @@ static void gsApplyProjection(MAYBE_UNUSED Renderer* renderer, MAYBE_UNUSED cons
     // No-op
 }
 
-static void gsBeginGUI(Renderer* renderer, int32_t guiW, int32_t guiH, MAYBE_UNUSED int32_t portX, MAYBE_UNUSED int32_t portY, MAYBE_UNUSED int32_t portW, MAYBE_UNUSED int32_t portH) {
+// targetSurfaceId is unused here because the renderer always draws to the screen buffer here
+static void gsBeginGUI(Renderer* renderer, int32_t guiW, int32_t guiH, MAYBE_UNUSED int32_t portX, MAYBE_UNUSED int32_t portY, MAYBE_UNUSED int32_t portW, MAYBE_UNUSED int32_t portH, MAYBE_UNUSED int32_t targetSurfaceId) {
     GsRenderer* gs = (GsRenderer*) renderer;
     gs->viewX = 0;
     gs->viewY = 0;

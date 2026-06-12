@@ -577,22 +577,21 @@ static void glApplyProjection(Renderer* renderer, const Matrix4f* worldToClip) {
     renderer->previousViewMatrix = projection;
 }
 
-static void glBeginGUI(Renderer* renderer, int32_t guiW, int32_t guiH, int32_t portX, int32_t portY, int32_t portW, int32_t portH) {
+static void glBeginGUI(Renderer* renderer, int32_t guiW, int32_t guiH, int32_t portX, int32_t portY, int32_t portW, int32_t portH, int32_t targetSurfaceId) {
     GLRenderer* gl = (GLRenderer*) renderer;
 
     gl->batchCount = 0;
     gl->currentTextureId = 0;
 
-    GLint boundFbo = 0;
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &boundFbo);
-
-    int32_t glPortY;
-    if ((GLint) gl->hostFramebuffer == boundFbo) {
-        glPortY = 0;
+    if (targetSurfaceId == RENDER_TARGET_HOST_FRAMEBUFFER) {
+        glBindFramebuffer(GL_FRAMEBUFFER, gl->hostFramebuffer);
         glViewport(0, 0, portW, portH);
         glScissor(0, 0, portW, portH);
     } else {
-        glPortY = gl->gameH - portY - portH;
+        require(targetSurfaceId >= 0 && (uint32_t) targetSurfaceId < gl->surfaceCount);
+        require(gl->surfaces[targetSurfaceId] != 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, gl->surfaces[targetSurfaceId]);
+        int32_t glPortY = gl->gameH - portY - portH;
         glViewport(portX, glPortY, portW, portH);
         glScissor(portX, glPortY, portW, portH);
     }

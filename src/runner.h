@@ -584,6 +584,12 @@ struct Runner {
     // GameMaker surface "stack".
     int32_t surfaceStack[MAX_SURFACES];
 
+    // GUI-pass state: when inGuiPass is set, popping the surface stack empty must restore the GUI target + projection, not the room view.
+    bool inGuiPass;
+    int32_t guiPassW, guiPassH;
+    int32_t guiPassPortW, guiPassPortH;
+    int32_t guiPassTarget;
+
     // Both must be set
     // The original runner actually spawns a new process when game_change is called
     char* pendingWorkingDirectory;

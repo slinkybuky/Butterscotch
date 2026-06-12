@@ -196,18 +196,20 @@ static void glApplyProjection(Renderer* renderer, const Matrix4f* worldToClip) {
     renderer->previousViewMatrix = projection;
 }
 
-static void glBeginGUI(Renderer* renderer, int32_t guiW, int32_t guiH, int32_t portX, int32_t portY, int32_t portW, int32_t portH) {
+static void glBeginGUI(Renderer* renderer, int32_t guiW, int32_t guiH, int32_t portX, int32_t portY, int32_t portW, int32_t portH, int32_t targetSurfaceId) {
     GLLegacyRenderer* gl = (GLLegacyRenderer*) renderer;
 
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    GLint boundFbo = 0;
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &boundFbo);
-    if (boundFbo == 0) {
+    if (targetSurfaceId == RENDER_TARGET_HOST_FRAMEBUFFER) {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, portW, portH);
         glEnable(GL_SCISSOR_TEST);
         glScissor(0, 0, portW, portH);
     } else {
+        require(targetSurfaceId >= 0 && (uint32_t) targetSurfaceId < gl->surfaceCount);
+        require(gl->surfaces[targetSurfaceId] != 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, gl->surfaces[targetSurfaceId]);
         glApplyViewport(gl, portX, portY, portW, portH);
     }
 
