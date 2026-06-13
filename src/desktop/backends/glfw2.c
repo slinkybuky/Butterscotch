@@ -286,5 +286,6 @@ void platformSleepUntil(uint64_t time) {
 
     while (nowNanos() < time) {
         // Spin-wait for the remaining sub-millisecond
+        YIELD();
     }
 }
