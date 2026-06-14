@@ -162,7 +162,7 @@ static inline RValue RValue_makeUndefined(void) {
 }
 
 // Takes ownership: refCount is NOT bumped (caller hands off its ref). The returned RValue decRefs on free.
-// Use this when you have a freshly-allocated array (GMLArray_alloc) or after a GMLArray_incRef.
+// Use this when you have a freshly-allocated array (GMLArray_create) or after a GMLArray_incRef.
 static inline RValue RValue_makeArray(GMLArray* arr) {
     RValue rv = {0};
     rv.type = RVALUE_ARRAY;
