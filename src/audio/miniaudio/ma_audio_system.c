@@ -743,6 +743,8 @@ static int32_t maCreateStream(AudioSystem* audio, const char* filename) {
 
     ma->streams[freeSlot].active = true;
     ma->streams[freeSlot].filePath = resolved;
+    ma->streams[freeSlot].initialGain = 1.0f;
+    ma->streams[freeSlot].initialPitch = 1.0f;
 
     int32_t streamIndex = AUDIO_STREAM_INDEX_BASE + freeSlot;
     fprintf(stderr, "Audio: Created stream %d for '%s' -> '%s'\n", streamIndex, filename, resolved);
