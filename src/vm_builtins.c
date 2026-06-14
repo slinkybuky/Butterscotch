@@ -12763,7 +12763,7 @@ static int32_t tilemapGetCellIndexAtPixel(DataWin* dw, RoomLayerTilesData* data,
 
     int32_t cellX = (int32_t) GMLReal_floor(x / (GMLReal) tileW);
     int32_t cellY = (int32_t) GMLReal_floor(y / (GMLReal) tileH);
-    return coerceTileCellsToTilemapBoundsAndConvertToArrayIndex(data, cellX, cellY);
+    return data->tileData[coerceTileCellsToTilemapBoundsAndConvertToArrayIndex(data, cellX, cellY)];
 }
 
 static RValue builtin_tilemap_get(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
@@ -12775,7 +12775,7 @@ static RValue builtin_tilemap_get(VMContext* ctx, RValue* args, MAYBE_UNUSED int
 
     int32_t cellX = RValue_toInt32(args[1]);
     int32_t cellY = RValue_toInt32(args[2]);
-    return RValue_makeReal((GMLReal) coerceTileCellsToTilemapBoundsAndConvertToArrayIndex(data, cellX, cellY));
+    return RValue_makeReal((GMLReal) data->tileData[coerceTileCellsToTilemapBoundsAndConvertToArrayIndex(data, cellX, cellY)]);
 }
 
 // tilemap_get_at_pixel(tilemapElementId, x, y): returns the raw tile cell value (index + mirror/flip/rotate bits) at the given room-space pixel coordinate, or -1 if the coordinate falls outside the tilemap.
