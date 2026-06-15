@@ -2622,7 +2622,7 @@ static RValue builtin_point_direction(MAYBE_UNUSED VMContext* ctx, RValue* args,
         else return RValue_makeReal(0.0);
     } else {
         GMLReal dd = 180.0 * GMLReal_atan2(y, x) / M_PI;
-        dd = GMLReal_round(dd * 1000000.0) / 1000000.0;
+        dd = GMLReal_bankersRound(dd * 1000000.0) / 1000000.0;
         if (dd <= 0.0) {
             return RValue_makeReal(-dd);
         } else {
