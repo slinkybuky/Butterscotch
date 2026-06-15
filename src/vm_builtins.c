@@ -10516,6 +10516,9 @@ static RValue builtin_place_meeting(VMContext* ctx, RValue* args, int32_t argCou
     int32_t target = VM_resolveInstanceTarget(ctx, RValue_toInt32(args[2]));
     if (target == INSTANCE_NOONE) return RValue_makeBool(false);
 
+    // ALWAYS SYNC THE GRID BEFORE CHANGING THE INSTANCE POSITION TO AVOID "SYNCING" THE TEST POSITION!
+    SpatialGrid_syncGrid(runner, runner->spatialGrid);
+
     // Save current position and temporarily move to test position
     GMLReal savedX = caller->x;
     GMLReal savedY = caller->y;
@@ -10524,8 +10527,6 @@ static RValue builtin_place_meeting(VMContext* ctx, RValue* args, int32_t argCou
 
     InstanceBBox callerBBox = Collision_computeBBox(runner, caller);
     bool found = false;
-
-    SpatialGrid_syncGrid(runner, runner->spatialGrid);
 
     if (callerBBox.valid) {
         SpatialGridQuery query = SpatialGrid_prepareQuery(runner, callerBBox.left, callerBBox.top, callerBBox.right, callerBBox.bottom, target);
@@ -11046,6 +11047,9 @@ static RValue builtin_instance_place(VMContext* ctx, RValue* args, int32_t argCo
     int32_t targetObjIndex = VM_resolveInstanceTarget(ctx, RValue_toInt32(args[2]));
     if (targetObjIndex == INSTANCE_NOONE) return RValue_makeReal((GMLReal) INSTANCE_NOONE);
 
+    // ALWAYS SYNC THE GRID BEFORE CHANGING THE INSTANCE POSITION TO AVOID "SYNCING" THE TEST POSITION!
+    SpatialGrid_syncGrid(runner, runner->spatialGrid);
+
     GMLReal savedX = caller->x;
     GMLReal savedY = caller->y;
     caller->x = testX;
@@ -11053,8 +11057,6 @@ static RValue builtin_instance_place(VMContext* ctx, RValue* args, int32_t argCo
 
     InstanceBBox callerBBox = Collision_computeBBox(runner, caller);
     int32_t resultId = INSTANCE_NOONE;
-
-    SpatialGrid_syncGrid(runner, runner->spatialGrid);
 
     if (callerBBox.valid) {
         SpatialGridQuery query = SpatialGrid_prepareQuery(runner, callerBBox.left, callerBBox.top, callerBBox.right, callerBBox.bottom, targetObjIndex);
@@ -11108,6 +11110,9 @@ static RValue builtin_instance_place_list(VMContext* ctx, RValue* args, int32_t 
     DsList* list = dsListGet(runner, listId);
     if (list == nullptr) return RValue_makeReal(0.0);
 
+    // ALWAYS SYNC THE GRID BEFORE CHANGING THE INSTANCE POSITION TO AVOID "SYNCING" THE TEST POSITION!
+    SpatialGrid_syncGrid(runner, runner->spatialGrid);
+
     GMLReal savedX = caller->x;
     GMLReal savedY = caller->y;
     caller->x = testX;
@@ -11115,8 +11120,6 @@ static RValue builtin_instance_place_list(VMContext* ctx, RValue* args, int32_t 
 
     InstanceBBox callerBBox = Collision_computeBBox(runner, caller);
     int32_t count = 0;
-
-    SpatialGrid_syncGrid(runner, runner->spatialGrid);
 
     if (callerBBox.valid) {
         SpatialGridQuery query = SpatialGrid_prepareQuery(runner, callerBBox.left, callerBBox.top, callerBBox.right, callerBBox.bottom, targetObjIndex);
