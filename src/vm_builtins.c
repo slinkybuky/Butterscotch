@@ -14905,6 +14905,7 @@ void VMBuiltins_registerAll(VMContext* ctx) {
 #if IS_WAD17_OR_HIGHER_ENABLED
     VM_registerBuiltin(ctx, "is_method", builtin_is_method);
     VM_registerBuiltin(ctx, "is_callable", builtin_is_callable);
+    VM_registerBuiltin(ctx, "typeof", builtin_typeof);
 #endif
 
     // Math functions
