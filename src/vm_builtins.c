@@ -12796,7 +12796,7 @@ static int32_t tilemapGetCellIndexAtPixel(DataWin* dw, RoomLayerTilesData* data,
 
     int32_t cellX = (int32_t) GMLReal_floor(x / (GMLReal) tileW);
     int32_t cellY = (int32_t) GMLReal_floor(y / (GMLReal) tileH);
-    return data->tileData[coerceTileCellsToTilemapBoundsAndConvertToArrayIndex(data, cellX, cellY)];
+    return coerceTileCellsToTilemapBoundsAndConvertToArrayIndex(data, cellX, cellY);
 }
 
 static RValue builtin_tilemap_get(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
