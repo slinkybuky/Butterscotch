@@ -3861,6 +3861,8 @@ static const char* disasmScopeName(VMContext* ctx, int32_t instanceType) {
         case INSTANCE_GLOBAL:    return "global";
         case INSTANCE_LOCAL:     return "local";
         case INSTANCE_STACKTOP:  return "stacktop";
+        case INSTANCE_BUILTIN:   return "builtin";
+        case INSTANCE_STATIC:    return "static";
         default:
             if (instanceType >= 0 && ctx->dataWin->objt.count > (uint32_t) instanceType) {
                 return ctx->dataWin->objt.objects[instanceType].name;
