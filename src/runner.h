@@ -696,6 +696,7 @@ int32_t Runner_surfaceGetTarget(Runner* runner);
 void Runner_dumpState(Runner* runner);
 char* Runner_dumpStateJson(Runner* runner);
 void Runner_free(Runner* runner);
+RuntimeLayer* Runner_findRuntimeLayerByName(Runner* runner, char* name);
 RuntimeLayer* Runner_findRuntimeLayerById(Runner* runner, int32_t id);
 RoomLayer* Runner_findRoomLayerById(Room* room, int32_t id);
 RuntimeLayerElement* Runner_findLayerElementById(Runner* runner, int32_t elementId, RuntimeLayer** outLayer);

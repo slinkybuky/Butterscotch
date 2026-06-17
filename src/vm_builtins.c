@@ -12586,12 +12586,19 @@ static RValue builtin_layer_tile_visible(VMContext* ctx, RValue* args, MAYBE_UNU
 }
 
 static RValue builtin_layer_sprite_get_id(VMContext* ctx, RValue* args, MAYBE_UNUSED int32_t argCount) {
-    // TODO: What's exactly is the "String" in this function?
-    logSemiStubbedFunction(ctx, "layer_sprite_get_id");
     Runner* runner = ctx->runner;
-    int32_t id = RValue_toInt32(args[0]);
+    RValue idOrName = args[0];
 
-    RuntimeLayer* layer = Runner_findRuntimeLayerById(runner, id);
+    RuntimeLayer* layer;
+    if (idOrName.type == RVALUE_STRING) {
+        char* name = RValue_toString(idOrName);
+        layer = Runner_findRuntimeLayerByName(runner, name);
+        free(name);
+    } else {
+        int32_t id = RValue_toInt32(idOrName);
+        layer = Runner_findRuntimeLayerById(runner, id);
+    }
+
     if (layer == nullptr)
         return RValue_makeReal(-1.0);
 

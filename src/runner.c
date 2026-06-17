@@ -2277,6 +2277,15 @@ void Runner_destroyInstance(MAYBE_UNUSED Runner* runner, Instance* inst, bool ru
 #endif
 }
 
+RuntimeLayer* Runner_findRuntimeLayerByName(Runner* runner, char* name) {
+    size_t count = arrlenu(runner->runtimeLayers);
+    repeat(count, i) {
+        if (strcmp(runner->runtimeLayers[i].dynamicName, name) == 0)
+            return &runner->runtimeLayers[i];
+    }
+    return nullptr;
+}
+
 RuntimeLayer* Runner_findRuntimeLayerById(Runner* runner, int32_t id) {
     size_t count = arrlenu(runner->runtimeLayers);
     repeat(count, i) {
