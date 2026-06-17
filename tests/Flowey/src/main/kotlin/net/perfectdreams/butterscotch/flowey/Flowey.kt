@@ -123,7 +123,7 @@ class Flowey : CliktCommand() {
                     TestResult.State.FAILURE -> "🚫"
                     TestResult.State.SKIPPED -> "⚠️"
                 }
-                appendLine("| $name | ${result.endedAt?.let { formatDuration(result.startedAt, it) } ?: "N/A")} | $emoji |")
+                appendLine("| $name | ${result.endedAt?.let { formatDuration(result.startedAt, it) } ?: "N/A"} | $emoji |")
             }
 
             if (failedTests.isNotEmpty()) {
