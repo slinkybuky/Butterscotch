@@ -2809,7 +2809,7 @@ static RValue executeLoop(VMContext* ctx) {
                 // On a exception, GameMaker pops the struct and stores it in the variable of the "catch (_nameOfTheExceptionHere) {"
                 Instance* gmlStruct = Runner_createStruct(ctx->runner);
                 // TODO: longMessage/script/stacktrace
-                VM_structSet(ctx, gmlStruct, "message", RValue_makeOwnedString(ctx->exception->message), -1);
+                VM_structSet(ctx, gmlStruct, "message", RValue_makeOwnedString(safeStrdup(ctx->exception->message)), -1);
                 stackPush(ctx, RValue_makeStructAndIncRef(gmlStruct));
                 free(ctx->exception->message);
                 free(ctx->exception);

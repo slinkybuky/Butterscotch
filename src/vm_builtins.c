@@ -13585,13 +13585,8 @@ static RValue builtin_finish_finally(VMContext* ctx, MAYBE_UNUSED RValue* args, 
     return RValue_makeUndefined();
 }
 
-// @@finish_catch@@ - discards a parked exception
+// @@finish_catch@@ - unused for now?
 static RValue builtin_finish_catch(MAYBE_UNUSED VMContext* ctx, MAYBE_UNUSED RValue* args, MAYBE_UNUSED int32_t argCount) {
-    if (ctx->exception != ctx->parkedException) {
-        free(ctx->parkedException);
-        free(ctx->parkedException);
-    }
-    ctx->parkedException = nullptr;
     return RValue_makeUndefined();
 }
 
