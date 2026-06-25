@@ -144,18 +144,6 @@ Bool isempty_RL ( EState* s )
       return True;
 }
 
-
-/*---------------------------------------------------*/
-int BZ_API(BZ2_bzCompressInit) 
-                    ( bz_stream* strm, 
-                     int        blockSize100k,
-                     int        verbosity,
-                     int        workFactor )
-{
-    return BZ_PARAM_ERROR;
-}
-
-
 /*---------------------------------------------------*/
 static
 void add_pair_to_block ( EState* s )
@@ -301,26 +289,8 @@ Bool copy_output_until_stop ( EState* s )
 }
 
 
-/*---------------------------------------------------*/
-static
-Bool handle_compress ( bz_stream* strm )
-{
-    return False;
-}
 
 
-/*---------------------------------------------------*/
-int BZ_API(BZ2_bzCompress) ( bz_stream *strm, int action )
-{
-    return BZ_PARAM_ERROR;
-}
-
-
-/*---------------------------------------------------*/
-int BZ_API(BZ2_bzCompressEnd)  ( bz_stream *strm )
-{
-    return BZ_PARAM_ERROR;
-}
 
 
 /*---------------------------------------------------*/
@@ -1083,17 +1053,6 @@ void BZ_API(BZ2_bzReadGetUnused)
 /*---------------------------------------------------*/
 
 /*---------------------------------------------------*/
-int BZ_API(BZ2_bzBuffToBuffCompress) 
-                         ( char*         dest, 
-                           unsigned int* destLen,
-                           char*         source, 
-                           unsigned int  sourceLen,
-                           int           blockSize100k, 
-                           int           verbosity, 
-                           int           workFactor )
-{
-    return BZ_PARAM_ERROR;
-}
 
 
 /*---------------------------------------------------*/
