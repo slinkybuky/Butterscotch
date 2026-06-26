@@ -43,6 +43,46 @@ extern GLint  gPalettedUPaletteVLoc;
 #include "image_decoder.h"
 #include "gl_common.h"
 
+// ===[ Runtime OpenGL extension checks ]===
+
+static bool hasFBO() {
+#ifdef PLATFORM_PS3
+    return true;
+#else
+    return (glGenFramebuffers || glGenFramebuffersEXT);
+#endif
+}
+
+#ifndef PLATFORM_PS3
+static void rt_glGenFramebuffers(GLsizei n, GLuint* ids) {
+    if (glGenFramebuffers) glGenFramebuffers(n, ids);
+    else glGenFramebuffersEXT(n, ids);
+}
+#undef glGenFramebuffers
+#define glGenFramebuffers rt_glGenFramebuffers
+
+static void rt_glBindFramebuffer(GLenum target, GLuint fb) {
+    if (glBindFramebuffer) glBindFramebuffer(target, fb);
+    else glBindFramebufferEXT(target, fb);
+}
+#undef glBindFramebuffer
+#define glBindFramebuffer rt_glBindFramebuffer
+
+static void rt_glFramebufferTexture2D(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level) {
+    if (glFramebufferTexture2D) glFramebufferTexture2D(target, attachment, textarget, texture, level);
+    else glFramebufferTexture2DEXT(target, attachment, textarget, texture, level);
+}
+#undef glFramebufferTexture2D
+#define glFramebufferTexture2D rt_glFramebufferTexture2D
+
+static void rt_glDeleteFramebuffers(GLsizei n, const GLuint* ids) {
+    if (glDeleteFramebuffers) glDeleteFramebuffers(n, ids);
+    else glDeleteFramebuffersEXT(n, ids);
+}
+#undef glDeleteFramebuffers
+#define glDeleteFramebuffers rt_glDeleteFramebuffers
+#endif
+
 // ===[ Helpers ]===
 
 static void glApplyViewport(GLLegacyRenderer* gl, int32_t x, int32_t y, int32_t w, int32_t h) {
@@ -62,6 +102,11 @@ static void glApplyViewport(GLLegacyRenderer* gl, int32_t x, int32_t y, int32_t 
 static void glInit(Renderer* renderer, DataWin* dataWin) {
     GLLegacyRenderer* gl = (GLLegacyRenderer*) renderer;
     renderer->dataWin = dataWin;
+
+    if (!hasFBO()) {
+        fprintf(stderr, "GL: The legacy-gl renderer requires FBO support!\n");
+        abort();
+    }
 
     // Prepare texture slots for lazy loading (PNG decode deferred to first use)
     glEnable(GL_TEXTURE_2D);
