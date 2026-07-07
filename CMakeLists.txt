@@ -628,6 +628,8 @@ elseif(PLATFORM STREQUAL "ps2")
                 ${CMAKE_SOURCE_DIR}/ps2dev-headers/gcc-include
         )
     endif()
+elseif(PLATFORM STREQUAL "ios")
+    message(STATUS "Configuring Butterscotch for iOS")
 elseif(PLATFORM STREQUAL "ps3")
     if (NOT ENABLE_LEGACY_GL)
         message(FATAL_ERROR "PS3 requires legacy gl!")
