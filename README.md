@@ -205,7 +205,7 @@ Here's also another video, this time showing off the Asriel Dreemurr final battl
 
 ### DELTARUNE (SURVEY_PROGRAM) (PlayStation 2) [WAD Version 16]
 
-Here's a video :3 https://youtu.be/TLJtV2WnrmQ
+Here's a video: https://youtu.be/TLJtV2WnrmQ
 
 ### DELTARUNE Chapter 2 (GLFW) [WAD Version 17]
 
