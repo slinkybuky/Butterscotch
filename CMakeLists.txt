@@ -104,11 +104,24 @@ file(GLOB PLATFORM_SOURCES src/${PLATFORM}/*.c)
 
 if(PLATFORM STREQUAL "android")
     add_library(butterscotch SHARED ${SOURCES} ${PLATFORM_SOURCES} ${AUDIO_SOURCES})
+elseif(PLATFORM STREQUAL "ios")
+    add_library(butterscotch STATIC ${SOURCES} ${PLATFORM_SOURCES} ${AUDIO_SOURCES})
 else()
     add_executable(butterscotch ${SOURCES} ${PLATFORM_SOURCES} ${AUDIO_SOURCES})
 endif()
 
 target_include_directories(butterscotch PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
+if(PLATFORM STREQUAL "android")
+    target_link_libraries(butterscotch PRIVATE log android GLESv3 EGL)
+elseif(PLATFORM STREQUAL "ios")
+    target_link_libraries(butterscotch PRIVATE
+        "-framework Foundation"
+        "-framework UIKit"
+        "-framework OpenGLES"
+        "-framework QuartzCore"
+    )
+endif()
 
 if(AUDIO_BACKEND STREQUAL "openal")
     target_include_directories(butterscotch PUBLIC src/audio/openal)
